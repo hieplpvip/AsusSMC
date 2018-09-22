@@ -1,0 +1,6 @@
+.DS_Store
+build
+Lilu.kext
+VirtualSMC.kext
+AsusSMC.xcodeproj/xcuserdata/
+AsusSMC.xcodeproj/project.xcworkspace/xcuserdata/
