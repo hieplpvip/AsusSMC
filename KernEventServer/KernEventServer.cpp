@@ -6,20 +6,11 @@
 //
 
 #include "KernEventServer.hpp"
-
-#if DEBUG
-#define DEBUG_LOG(fmt, args...) IOLog(fmt, ## args)
-#else
-#define DEBUG_LOG(fmt, args...)
-#endif
-
-const char * KernEventServer::getName() {
-    return "KernEventServer";
-}
+#include <VirtualSMCSDK/kern_vsmcapi.hpp>
 
 bool KernEventServer::setVendorID(const char *vendorCode) {
     if(KERN_SUCCESS != kev_vendor_code_find(vendorCode, &vendorID)) {
-        DEBUG_LOG("%s::setVendorID error\n", getName());
+        DBGLOG("kevserver", "setVendorID error");
         return false;
     }
     return true;
@@ -61,7 +52,7 @@ bool KernEventServer::sendMessage(int type, int x, int y) {
     kEventMsg.dv[2].data_ptr = &y;
 
     if(KERN_SUCCESS != kev_msg_post(&kEventMsg)) {
-        DEBUG_LOG("%s::sendMessage error\n", getName());
+        DBGLOG("kevserver", "sendMessage error\n");
         return false;
     }
     return true;

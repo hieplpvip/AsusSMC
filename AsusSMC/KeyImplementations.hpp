@@ -89,17 +89,13 @@ public:
     /**
      *  Keyboard backlight brightness
      */
-    struct lks {
+    struct PACKED lks {
         uint8_t unknown0 {0};
         uint8_t unknown1 {1};
     };
-    struct lkb {
+    struct PACKED lkb {
         uint8_t val1 {0};
         uint8_t val2 {1};
-        // maximum keyboard backlight value is 0xfff, stored in 12 bits
-        // the first 8 bits are stored in val1
-        // the rest 4 bits are stored in val2 (bit 7->4)
-        // eg. value is 0x6eb, lkb would be 6e b0
     };
 
     SMCKBrdBLightValue(IOACPIPlatformDevice *atkDevice): atkDevice(atkDevice) {}

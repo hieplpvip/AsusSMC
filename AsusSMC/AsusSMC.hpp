@@ -235,7 +235,7 @@ struct ALSSensor {
     ALSSensor(Type sensorType, bool validWhenLidClosed, uint8_t unknown, bool controlSIL): sensorType(sensorType), validWhenLidClosed(validWhenLidClosed), unknown(unknown), controlSIL(controlSIL) {}
 };
 
-class AsusSMC : public IOService {
+class EXPORT AsusSMC : public IOService {
     OSDeclareDefaultStructors(AsusSMC)
 
     /**

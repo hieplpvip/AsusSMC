@@ -28,15 +28,15 @@ SMC_RESULT SMCALSValue::readAccess() {
 }
 
 SMC_RESULT SMCKBrdBLightValue::writeAccess() {
-    lkb *value = reinterpret_cast<lkb *>(data);
+    auto value = reinterpret_cast<lkb *>(data);
     if (atkDevice) {
-        uint16_t val = value->val1<<4 | value->val2>>4;
-        DBGLOG("alsd", "LKSB writeAcess val1 %d val2 %d", value->val1, value->val2);
-        SYSLOG("alsd", "LKSB writeAccess %d", val);
-        val = val / 16;
+        uint16_t tval = (value->val1 << 4) | (value->val2 >> 4);
+        DBGLOG("alsd", "LKSB writeAccess val1 %d val2 %d", value->val1, value->val2);
+        DBGLOG("alsd", "LKSB writeAccess %d", tval);
+        tval = tval / 16;
         OSObject * params[1];
         OSObject * ret = NULL;
-        params[0] = OSNumber::withNumber(val, sizeof(val)*8);
+        params[0] = OSNumber::withNumber(tval, sizeof(tval)*8);
 
         atkDevice->evaluateObject("SKBV", &ret, params, 1);
     }
