@@ -80,23 +80,23 @@ void AsusSMC::wmi_dump_wdg(struct guid_block *src) {
     char guid_string[37];
 
     wmi_data2Str(src->guid, guid_string);
-    DBGLOG("atk", "%s:\n", guid_string);
+    DBGLOG("guid", "%s:", guid_string);
     if (src->flags & ACPI_WMI_EVENT)
-        DBGLOG("atk", "\tnotify_value: %02X\n", src->notify_id);
+        DBGLOG("guid", "\tnotify_value: %02X", src->notify_id);
     else
-        DBGLOG("atk", "\tobject_id: %c%c\n",src->object_id[0], src->object_id[1]);
-    DBGLOG("atk", "\tinstance_count: %d\n", src->instance_count);
-    DBGLOG("atk", "\tflags: %#x", src->flags);
+        DBGLOG("guid", "\tobject_id: %c%c",src->object_id[0], src->object_id[1]);
+    DBGLOG("guid", "\tinstance_count: %d", src->instance_count);
+    DBGLOG("guid", "\tflags: %#x", src->flags);
     if (src->flags) {
-        DBGLOG("atk", " ");
+        DBGLOG("guid", " ");
         if (src->flags & ACPI_WMI_EXPENSIVE)
-            DBGLOG("atk", "ACPI_WMI_EXPENSIVE ");
+            DBGLOG("guid", "ACPI_WMI_EXPENSIVE ");
         if (src->flags & ACPI_WMI_METHOD)
-            DBGLOG("atk", "ACPI_WMI_METHOD ");
+            DBGLOG("guid", "ACPI_WMI_METHOD ");
         if (src->flags & ACPI_WMI_STRING)
-            DBGLOG("atk", "ACPI_WMI_STRING ");
+            DBGLOG("guid", "ACPI_WMI_STRING ");
         if (src->flags & ACPI_WMI_EVENT)
-            DBGLOG("atk", "ACPI_WMI_EVENT ");
+            DBGLOG("guid", "ACPI_WMI_EVENT ");
     }
 }
 
@@ -135,7 +135,7 @@ OSString * AsusSMC::flagsToStr(UInt8 flags) {
         if (flags & ACPI_WMI_METHOD) {
             lilu_os_strncpy(pos, "ACPI_WMI_METHOD ", 20);
             pos += strlen(pos);
-            DBGLOG("atk", "WMI METHOD");
+            DBGLOG("guid", "WMI METHOD");
         }
         if (flags & ACPI_WMI_STRING) {
             lilu_os_strncpy(pos, "ACPI_WMI_STRING ", 20);
@@ -144,7 +144,7 @@ OSString * AsusSMC::flagsToStr(UInt8 flags) {
         if (flags & ACPI_WMI_EVENT) {
             lilu_os_strncpy(pos, "ACPI_WMI_EVENT ", 20);
             pos += strlen(pos);
-            DBGLOG("atk", "WMI EVENT");
+            DBGLOG("guid", "WMI EVENT");
         }
         //suppress the last trailing space
         str[strlen(str)] = 0;
@@ -190,13 +190,13 @@ OSDictionary * AsusSMC::readDataBlock(char *str) {
 
     do {
         if (atkDevice->evaluateObject(name, &wqxx) != kIOReturnSuccess) {
-            IOLog("%s::No object of method %s\n", getName(), name);
+            SYSLOG("guid", "No object of method %s", name);
             continue;
         }
 
         data = OSDynamicCast(OSData, wqxx);
         if (data == NULL) {
-            IOLog("%s::Cast error %s\n", getName(), name);
+            SYSLOG("guid", "Cast error %s", name);
             continue;
         }
         dict->setObject(name, data);
@@ -212,13 +212,13 @@ int AsusSMC::parse_wdg(OSDictionary *dict) {
 
     do {
         if (atkDevice->evaluateObject("_WDG", &wdg) != kIOReturnSuccess) {
-            IOLog("%s::No object of method _WDG\n", getName());
+            SYSLOG("guid", "No object of method _WDG");
             continue;
         }
 
         data = OSDynamicCast(OSData, wdg);
         if (data == NULL) {
-            IOLog("%s::Cast error _WDG\n", getName());
+            SYSLOG("guid", "Cast error _WDG");
             continue;
         }
         total = data->getLength() / sizeof(struct guid_block);
@@ -272,7 +272,7 @@ bool AsusSMC::init(OSDictionary *dict) {
 
     bool result = super::init(dict);
     properties = dict;
-    DBGLOG("atk", "Init");
+    DBGLOG("atk", "Init AsusSMC");
     return result;
 }
 
@@ -347,9 +347,7 @@ bool AsusSMC::start(IOService *provider) {
 
     setProperty("TouchpadEnabled", true);
 
-    setProperty("Copyright", "Copyright © 2018 hieplpvip. Credits: EMlyDinEsH(OSXLatitude)");
-
-    SYSLOG("atk", "Asus Fn Hotkey Events Enabled");
+    setProperty("Copyright", "Copyright © 2018 hieplpvip");
 
     return true;
 }
@@ -405,7 +403,7 @@ IOReturn AsusSMC::message(UInt32 type, IOService * provider, void * argument) {
         OSObject * wed;
 
         OSNumber * number = OSNumber::withNumber(event,32);
-        atkDevice->evaluateObject("_WED", &wed, (OSObject**)&number,1);
+        atkDevice->evaluateObject("_WED", &wed, (OSObject**)&number, 1);
         number->release();
         number = OSDynamicCast(OSNumber, wed);
         if (NULL == number) {
@@ -500,7 +498,7 @@ void AsusSMC::handleMessage(int code) {
             if (hasALSensor) {
                 UInt32 alsValue = 0;
                 atkDevice->evaluateInteger("ALSS", &alsValue, NULL, NULL);
-                DBGLOG("atk", "ALS %d\n", alsValue);
+                DBGLOG("atk", "ALS %d", alsValue);
             }
             break;
 
@@ -527,7 +525,7 @@ void AsusSMC::handleMessage(int code) {
             break;
     }
 
-    DBGLOG("atk", "Received Key %d(0x%x)\n", code, code);
+    DBGLOG("atk", "Received Key %d(0x%x)", code, code);
 
     // Sending the code for the keyboard handler
     processFnKeyEvents(code, loopCount);
@@ -539,11 +537,11 @@ void AsusSMC::processFnKeyEvents(int code, int bLoopCount) {
     ReportType type;
     do {
         if (keyMap[i].type == ReportType::none && keyMap[i].in == 0 && keyMap[i].out == 0xFF) {
-            DBGLOG("atk", "Unknown key %02X i=%d\n", code, i);
+            DBGLOG("atk", "Unknown key %02X i=%d", code, i);
             return;
         }
         if (keyMap[i].in == code) {
-            DBGLOG("atk", "Key Pressed %02X i=%d\n", code, i);
+            DBGLOG("atk", "Key Pressed %02X i=%d", code, i);
             out = keyMap[i].out;
             type = keyMap[i].type;
             break;
@@ -559,13 +557,13 @@ void AsusSMC::processFnKeyEvents(int code, int bLoopCount) {
                 kbreport.keys.erase(out);
                 postKeyboardInputReport(&kbreport, sizeof(kbreport));
             }
-            DBGLOG("atk", "Loop Count %d, Dispatch Key %d(0x%x)\n", bLoopCount, code, code);
+            DBGLOG("atk", "Loop Count %d, Dispatch Key %d(0x%x)", bLoopCount, code, code);
         } else {
             kbreport.keys.insert(out);
             postKeyboardInputReport(&kbreport, sizeof(kbreport));
             kbreport.keys.erase(out);
             postKeyboardInputReport(&kbreport, sizeof(kbreport));
-            DBGLOG("atk", "Dispatch Key %d(0x%x)\n", code, code);
+            DBGLOG("atk", "Dispatch Key %d(0x%x)", code, code);
         }
     }
 
@@ -590,8 +588,10 @@ void AsusSMC::processFnKeyEvents(int code, int bLoopCount) {
 
 void AsusSMC::checkKBALS() {
     // Check keyboard backlight support
-    if (atkDevice->validateObject("SKBV") == kIOReturnSuccess)
+    if (atkDevice->validateObject("SKBV") == kIOReturnSuccess) {
+        SYSLOG("atk", "Keyboard backlight is supported");
         hasKeybrdBLight = true;
+    }
     else {
         hasKeybrdBLight = false;
         DBGLOG("atk", "Keyboard backlight is not supported");
@@ -599,10 +599,10 @@ void AsusSMC::checkKBALS() {
 
     // Check ALS sensor
     if (atkDevice->validateObject("ALSC") == kIOReturnSuccess && atkDevice->validateObject("ALSS") == kIOReturnSuccess) {
-        IOLog("%s::Found ALS sensor\n", getName());
+        SYSLOG("atk", "Found ALS sensor");
         hasALSensor = isALSenabled = true;
         toggleALS(isALSenabled);
-        IOLog("%s::ALS turned on at boot\n", getName());
+        SYSLOG("atk", "ALS turned on at boot");
     } else {
         hasALSensor = false;
         DBGLOG("atk", "No ALS sensors were found");
@@ -615,7 +615,7 @@ void AsusSMC::toggleALS(bool state) {
     params[0] = OSNumber::withNumber(state, 8);
 
     if (atkDevice->evaluateInteger("ALSC", &res, params, 1) == kIOReturnSuccess)
-        DBGLOG("atk", "ALS %s %d\n", state ? "enabled" : "disabled", res);
+        DBGLOG("atk", "ALS %s %d", state ? "enabled" : "disabled", res);
     else
         DBGLOG("atk", "Failed to call ALSC");
 }
@@ -624,7 +624,7 @@ int AsusSMC::checkBacklightEntry() {
     if (IORegistryEntry::fromPath(backlightEntry))
         return 1;
     else {
-        DBGLOG("atk", "Failed to find backlight entry for %s\n", backlightEntry);
+        DBGLOG("atk", "Failed to find backlight entry for %s", backlightEntry);
         return 0;
     }
 }
@@ -686,9 +686,9 @@ void AsusSMC::readPanelBrightnessValue() {
         if (OSDictionary* ioDisplayParaDict = OSDynamicCast(OSDictionary, displayDeviceEntry->getProperty("IODisplayParameters"))) {
             if (OSDictionary* brightnessDict = OSDynamicCast(OSDictionary, ioDisplayParaDict->getObject("brightness"))) {
                 if (OSNumber* brightnessValue = OSDynamicCast(OSNumber, brightnessDict->getObject("value"))) {
-                    panelBrightnessLevel = brightnessValue->unsigned32BitValue()/64;
-                    DBGLOG("atk", "Panel brightness level from AppleBacklightDisplay: %d\n", brightnessValue->unsigned32BitValue());
-                    DBGLOG("atk", "Read panel brightness level: %d\n", panelBrightnessLevel);
+                    panelBrightnessLevel = brightnessValue->unsigned32BitValue() / 64;
+                    DBGLOG("atk", "Panel brightness level from AppleBacklightDisplay: %d", brightnessValue->unsigned32BitValue());
+                    DBGLOG("atk", "Read panel brightness level: %d", panelBrightnessLevel);
                 } else
                     DBGLOG("atk", "Can't not read brightness value");
             } else
@@ -752,7 +752,7 @@ void AsusSMC::setDeviceStatus(const char * guid, UInt32 methodId, UInt32 deviceI
     *status = ~0;
     atkDevice->evaluateInteger(method, status, params, 3);
 
-    DBGLOG("atk", "setDeviceStatus Res = %x\n", (unsigned int)*status);
+    DBGLOG("atk", "setDeviceStatus Res = %x", (unsigned int)*status);
 
     params[0]->release();
     params[1]->release();
@@ -760,7 +760,7 @@ void AsusSMC::setDeviceStatus(const char * guid, UInt32 methodId, UInt32 deviceI
 }
 
 void AsusSMC::setDevice(const char * guid, UInt32 methodId, UInt32 *status) {
-    DBGLOG("atk", "setDevice(%d)\n", (int)*status);
+    DBGLOG("atk", "setDevice(%d)", (int)*status);
 
     char method[5];
     char buffer[4];
@@ -785,7 +785,7 @@ void AsusSMC::setDevice(const char * guid, UInt32 methodId, UInt32 *status) {
     *status = ~0;
     atkDevice->evaluateInteger(method, status, params, 3);
 
-    DBGLOG("atk", "setDevice Res = %x\n", (unsigned int)*status);
+    DBGLOG("atk", "setDevice Res = %x", (unsigned int)*status);
 
     params[0]->release();
     params[1]->release();
@@ -820,7 +820,7 @@ void AsusSMC::initVirtualKeyboard() {
 
     if (!_virtualKBrd || !_virtualKBrd->init() || !_virtualKBrd->attach(this) || !_virtualKBrd->start(this)) {
         _virtualKBrd->release();
-        IOLog("%s::Error VirtualHIDKeyboard\n", getName());
+        SYSLOG("virtkbrd", "Error init VirtualHIDKeyboard");
     } else
         _virtualKBrd->setCountryCode(0);
 }
@@ -868,12 +868,12 @@ void AsusSMC::registerNotifications() {
 
 void AsusSMC::notificationHandlerGated(IOService * newService, IONotifier * notifier) {
     if (notifier == _publishNotify) {
-        SYSLOG("notify", "Notification consumer published: %s\n", newService->getName());
+        SYSLOG("notify", "Notification consumer published: %s", newService->getName());
         _notificationServices->setObject(newService);
     }
 
     if (notifier == _terminateNotify) {
-        SYSLOG("notify", "Notification consumer terminated: %s\n", newService->getName());
+        SYSLOG("notify", "Notification consumer terminated: %s", newService->getName());
         _notificationServices->removeObject(newService);
     }
 }
@@ -944,11 +944,11 @@ void AsusSMC::registerVSMC() {
 
 bool AsusSMC::vsmcNotificationHandler(void *sensors, void *refCon, IOService *vsmc, IONotifier *notifier) {
     if (sensors && vsmc) {
-        DBGLOG("als", "got vsmc notification");
+        DBGLOG("alsd", "got vsmc notification");
         auto self = static_cast<AsusSMC *>(sensors);
         auto ret = vsmc->callPlatformFunction(VirtualSMCAPI::SubmitPlugin, true, sensors, &self->vsmcPlugin, nullptr, nullptr);
         if (ret == kIOReturnSuccess) {
-            DBGLOG("als", "submitted plugin");
+            DBGLOG("alsd", "submitted plugin");
 
             self->workloop = self->getWorkLoop();
             self->poller = IOTimerEventSource::timerEventSource(self, [](OSObject *object, IOTimerEventSource *sender) {
@@ -957,28 +957,28 @@ bool AsusSMC::vsmcNotificationHandler(void *sensors, void *refCon, IOService *vs
             });
 
             if (!self->poller || !self->workloop) {
-                SYSLOG("als", "failed to create poller or workloop");
+                SYSLOG("alsd", "failed to create poller or workloop");
                 return false;
             }
 
             if (self->workloop->addEventSource(self->poller) != kIOReturnSuccess) {
-                SYSLOG("als", "failed to add timer event source to workloop");
+                SYSLOG("alsd", "failed to add timer event source to workloop");
                 return false;
             }
 
             if (self->poller->setTimeoutMS(SensorUpdateTimeoutMS) != kIOReturnSuccess) {
-                SYSLOG("als", "failed to set timeout");
+                SYSLOG("alsd", "failed to set timeout");
                 return false;
             }
 
             return true;
         } else if (ret != kIOReturnUnsupported) {
-            SYSLOG("als", "plugin submission failure %X", ret);
+            SYSLOG("alsd", "plugin submission failure %X", ret);
         } else {
-            DBGLOG("als", "plugin submission to non vsmc");
+            DBGLOG("alsd", "plugin submission to non vsmc");
         }
     } else {
-        SYSLOG("als", "got null vsmc notification");
+        SYSLOG("alsd", "got null vsmc notification");
     }
 
     return false;

@@ -84,7 +84,6 @@ public:
 class SMCKBrdBLightValue : public VirtualSMCValue {
 protected:
     IOACPIPlatformDevice *atkDevice {nullptr};
-    SMC_RESULT writeAccess(const SMC_DATA *new_data) override;
 public:
     /**
      *  Keyboard backlight brightness
@@ -99,6 +98,8 @@ public:
     };
 
     SMCKBrdBLightValue(IOACPIPlatformDevice *atkDevice): atkDevice(atkDevice) {}
+
+    SMC_RESULT update(const SMC_DATA *src) override;
 };
 
 #endif /* KeyImplementations_hpp */
