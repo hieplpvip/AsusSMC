@@ -32,7 +32,7 @@ SMC_RESULT SMCKBrdBLightValue::update(const SMC_DATA *src)  {
     lilu_os_memcpy(value, src, sizeof(lkb));
     if (atkDevice) {
         uint16_t tval = (value->val1 << 4) | (value->val2 >> 4);
-        DBGLOG("kbrdbacklight", "LKSB update %d", tval);
+        DBGLOG("kbrdblight", "LKSB update %d", tval);
         tval = tval / 16;
         OSObject * params[1];
         OSObject * ret = NULL;
