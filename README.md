@@ -3,12 +3,13 @@
 A VirtualSMC plugin provides native support for ALS, keyboard backlight and Fn keys for Asus laptops on macOS.
 
 #### Features
-- Full Fn keys support
-- Native ALS and keyboard backlight support
+- Full Fn keys support (including sleep, airplane mode, trackpad)
+- Native ALS support
+- Native keyboard backlight support (16 levels, smooth transition, auto adjusting, auto turning off)
 
 #### Requirements
 - Asus laptop with ATK device
-- To get keyboard backlight working, you need an ALS sensor (can be fake)
+- Knowing how to patch DSDT (if not, read [this](https://www.tonymacx86.com/threads/guide-patching-laptop-dsdt-ssdts.152573/))
 
 #### Boot arguments
 - Add `-asussmcdbg` to enable debug printing (available in DEBUG binaries).
