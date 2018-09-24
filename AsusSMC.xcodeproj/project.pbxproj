@@ -547,6 +547,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"MODULE_VERSION=$(MODULE_VERSION)",
 					"PRODUCT_NAME=$(PRODUCT_NAME)",
+					"$(inherited)",
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/VirtualSMC.kext/Contents/Resources/",
@@ -576,6 +577,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"MODULE_VERSION=$(MODULE_VERSION)",
 					"PRODUCT_NAME=$(PRODUCT_NAME)",
+					"$(inherited)",
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/VirtualSMC.kext/Contents/Resources/",
