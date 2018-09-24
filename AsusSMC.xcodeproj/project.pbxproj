@@ -558,8 +558,8 @@
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/Library",
 				);
 				MODULE_NAME = com.hieplpvip.AsusSMC;
-				MODULE_START = AsusSMC_kern_start;
-				MODULE_STOP = AsusSMC_kern_stop;
+				MODULE_START = "$(PRODUCT_NAME)_kern_start";
+				MODULE_STOP = "$(PRODUCT_NAME)_kern_stop";
 				MODULE_VERSION = 1.0.0;
 				OTHER_CPLUSPLUSFLAGS = "-Wno-inconsistent-missing-override";
 				PRODUCT_BUNDLE_IDENTIFIER = com.hieplpvip.AsusSMC;
@@ -587,8 +587,8 @@
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/Library",
 				);
 				MODULE_NAME = com.hieplpvip.AsusSMC;
-				MODULE_START = AsusSMC_kern_start;
-				MODULE_STOP = AsusSMC_kern_stop;
+				MODULE_START = "$(PRODUCT_NAME)_kern_start";
+				MODULE_STOP = "$(PRODUCT_NAME)_kern_stop";
 				MODULE_VERSION = 1.0.0;
 				OTHER_CPLUSPLUSFLAGS = "-Wno-inconsistent-missing-override";
 				PRODUCT_BUNDLE_IDENTIFIER = com.hieplpvip.AsusSMC;
