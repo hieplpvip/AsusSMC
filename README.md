@@ -1,4 +1,4 @@
-# [WIP] AsusSMC
+# AsusSMC
 
 A VirtualSMC plugin provides native support for ALS, keyboard backlight and Fn keys for Asus laptops on macOS.
 
