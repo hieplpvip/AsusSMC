@@ -29,7 +29,7 @@ SMC_RESULT SMCALSValue::readAccess() {
 
 SMC_RESULT SMCKBrdBLightValue::update(const SMC_DATA *src)  {
     lkb *value = new lkb;
-    lilu_os_memcpy(value, src, sizeof(lkb));
+    lilu_os_memcpy(value, src, size);
     if (atkDevice) {
         uint16_t tval = (value->val1 << 4) | (value->val2 >> 4);
         DBGLOG("kbrdblight", "LKSB update %d", tval);
@@ -40,5 +40,6 @@ SMC_RESULT SMCKBrdBLightValue::update(const SMC_DATA *src)  {
 
         atkDevice->evaluateObject("SKBV", &ret, params, 1);
     }
+    lilu_os_memcpy(data, src, size);
     return SmcSuccess;
 }
