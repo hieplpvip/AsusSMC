@@ -194,62 +194,8 @@ typedef struct  {
     ReportType type;
 } FnKeysKeyMap;
 
-/**
- *  ALSSensor structure contains sensor-specific information for this system
- */
-struct ALSSensor {
-    /**
-     *  Supported sensor types
-     */
-    enum Type : uint8_t {
-        NoSensor  = 0,
-        BS520     = 1,
-        TSL2561CS = 2,
-        LX1973A   = 3,
-        ISL29003  = 4,
-        Unknown7  = 7
-    };
-
-    /**
-     *  Sensor type
-     */
-    Type sensorType {Type::NoSensor};
-
-    /**
-     * TRUE if no lid or if sensor works with closed lid.
-     * FALSE otherwise.
-     */
-    bool validWhenLidClosed {false};
-
-    /**
-     *  Possibly ID
-     */
-    uint8_t unknown {0};
-
-    /**
-     * TRUE if the SIL brightness depends on this sensor's value.
-     * FALSE otherwise.
-     */
-    bool controlSIL {false};
-
-    ALSSensor(Type sensorType, bool validWhenLidClosed, uint8_t unknown, bool controlSIL): sensorType(sensorType), validWhenLidClosed(validWhenLidClosed), unknown(unknown), controlSIL(controlSIL) {}
-};
-
 class EXPORT AsusSMC : public IOService {
     OSDeclareDefaultStructors(AsusSMC)
-
-    /**
-     *  Key name definitions for VirtualSMC
-     */
-    static constexpr SMC_KEY KeyAL   = SMC_MAKE_IDENTIFIER('A','L','!',' ');
-    static constexpr SMC_KEY KeyALI0 = SMC_MAKE_IDENTIFIER('A','L','I','0');
-    static constexpr SMC_KEY KeyALI1 = SMC_MAKE_IDENTIFIER('A','L','I','1');
-    static constexpr SMC_KEY KeyALRV = SMC_MAKE_IDENTIFIER('A','L','R','V');
-    static constexpr SMC_KEY KeyALV0 = SMC_MAKE_IDENTIFIER('A','L','V','0');
-    static constexpr SMC_KEY KeyALV1 = SMC_MAKE_IDENTIFIER('A','L','V','1');
-    static constexpr SMC_KEY KeyLKSB = SMC_MAKE_IDENTIFIER('L','K','S','B');
-    static constexpr SMC_KEY KeyLKSS = SMC_MAKE_IDENTIFIER('L','K','S','S');
-    static constexpr SMC_KEY KeyMSLD = SMC_MAKE_IDENTIFIER('M','S','L','D');
 
     /**
      *  Registered plugin instance
