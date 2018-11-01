@@ -2,7 +2,7 @@
 //  main.m
 //  AsusSMC
 //
-//  Copyright © 2018 Le Bao Hiep. All rights reserved.
+//  Copyright © 2018 Le Bao Hiep
 //
 
 #define AsusSMCEventCode 0x8102

@@ -2,7 +2,7 @@
 //  KeyImplementations.hpp
 //  AsusSMC
 //
-//  Copyright © 2018 Le Bao Hiep. All rights reserved.
+//  Copyright © 2018 Le Bao Hiep
 //
 
 #ifndef KeyImplementations_hpp

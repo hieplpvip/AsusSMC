@@ -52,6 +52,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4C27D2BF218B647F0089409B /* LICENSE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LICENSE.md; sourceTree = "<group>"; };
 		4C32363D215901DF00700256 /* package.tool */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = package.tool; sourceTree = "<group>"; };
 		4C32364A2159051A00700256 /* install_daemon.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install_daemon.sh; sourceTree = "<group>"; };
 		4C4FE6212156A1690074AD08 /* AsusSMC.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AsusSMC.kext; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -155,6 +156,7 @@
 				4C4FE6222156A1690074AD08 /* Products */,
 				4C4FE6B42156A4A20074AD08 /* Frameworks */,
 				4C4FE6C22156AA810074AD08 /* README.md */,
+				4C27D2BF218B647F0089409B /* LICENSE.md */,
 				4C32363D215901DF00700256 /* package.tool */,
 			);
 			sourceTree = "<group>";

@@ -2,7 +2,7 @@
 //  OSD.h
 //  AsusSMCDaemon
 //
-//  Copyright © 2018 Le Bao Hiep. All rights reserved.
+//  Copyright © 2018 Le Bao Hiep
 //
 
 #ifndef OSD_h
