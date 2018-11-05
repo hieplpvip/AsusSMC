@@ -15,8 +15,7 @@ A VirtualSMC plugin provides native support for ALS, keyboard backlight and Fn k
 - Add `-asussmcdbg` to enable debug printing (available in DEBUG binaries).
 
 #### How to install
-- Patch DSDT (instruction coming)
-- Install this kext together with VirtualSMC and Lilu
+- Instruction is available in the Wiki.
 
 #### Credits
 - [Apple](https://www.apple.com) for macOS
