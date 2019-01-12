@@ -1,0 +1,29 @@
+#Maintained by hieplpvip
+
+into_all device label ALS0 remove_entry;
+into scope label _SB insert begin
+Device(ALS0)\n
+{\n
+    Name(_HID, "ACPI0008")\n
+    Name(_CID, "smc-als")\n
+    Name(_ALI, 150)\n
+    Name(_ALR, Package()\n
+    {\n
+        Package() { 100, 150 },\n
+    })\n
+}
+end;
+into method label ALSS parent_label ATKD remove_entry;
+into method label ALSC parent_label ATKD remove_entry;
+into device label ATKD insert begin
+Method (ALSS, 0, NotSerialized)\n
+{\n
+    Return (^^ALS0._ALI)\n
+}
+end;
+into device label ATKD insert begin
+Method (ALSC, 1, NotSerialized)\n
+{\n
+    // This method does nothing\n
+}
+end;

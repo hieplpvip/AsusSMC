@@ -1,0 +1,4 @@
+--- Patching ALS ---	NullPatch.txt
+[als] Faking ALS	patches/fake_als.txt
+--- Patching keyboard backlight ---	NullPatch.txt
+--- Patching fn keys ---	NullPatch.txt
