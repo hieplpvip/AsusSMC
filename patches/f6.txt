@@ -1,0 +1,11 @@
+#Maintained by hieplpvip
+#See https://github.com/hieplpvip/AsusSMC/wiki/Installation-Instruction
+#for how to use
+
+# Replacing method _Q0F for F6 key to work
+into Method label _Q0F replace_content begin 
+    If (ATKP)\n
+    {\n
+        \_SB.ATKD.IANE (0x10)\n
+    }
+end;

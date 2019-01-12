@@ -1,0 +1,11 @@
+#Maintained by hieplpvip
+#See https://github.com/hieplpvip/AsusSMC/wiki/Installation-Instruction
+#for how to use
+
+# Replacing method _Q0E for F5 key to work
+into Method label _Q0E replace_content begin 
+    If (ATKP)\n
+    {\n
+        \_SB.ATKD.IANE (0x20)\n
+    }
+end;

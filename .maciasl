@@ -1,8 +1,21 @@
---- Ambient Light Sensor ---	NullPatch.txt
+[als] --> Ambient Light Sensor	patches/NullPatch.txt
 [als] Fake ALS	patches/fake_als.txt
 [als] Patch ALSS	patches/patch_alss.txt
 [als] Patch ALSC	patches/patch_alsc.txt
---- Keyboard Backlight ---	NullPatch.txt
+[kbl] --> Keyboard Backlight	patches/NullPatch.txt
 [kbl] Broadwell	patches/kbl_broadwell.txt
 [kbl] Kaby Lake/Kaby Lake-R	patches/kbl_kabylake.txt
---- FN keys ---	NullPatch.txt
+[fn] --> FN keys	patches/NullPatch.txt
+[fn] ALS toggle	patches/als_toggle.txt
+[fn] F1 key	patches/f1.txt
+[fn] F2 key	patches/f2.txt
+[fn] F3 key	patches/f3.txt
+[fn] F4 key	patches/f4.txt
+[fn] F5 key	patches/f5.txt
+[fn] F6 key	patches/f6.txt
+[fn] F7 key	patches/f7.txt
+[fn] F8 key	patches/f8.txt
+[fn] F9 key	patches/f9.txt
+[fn] F10 key	patches/f10.txt
+[fn] F11 key	patches/f11.txt
+[fn] F12 key	patches/f12.txt

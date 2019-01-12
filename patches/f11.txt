@@ -1,0 +1,11 @@
+#Maintained by hieplpvip
+#See https://github.com/hieplpvip/AsusSMC/wiki/Installation-Instruction
+#for how to use
+
+# Replacing method _Q14 for F11 key to work
+into Method label _Q14 replace_content begin 
+    If (ATKP)\n
+    {\n
+        \_SB.ATKD.IANE (0x31)\n
+    }
+end;
