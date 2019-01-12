@@ -1,4 +1,8 @@
---- Patching ALS ---	NullPatch.txt
-[als] Faking ALS	patches/fake_als.txt
---- Patching keyboard backlight ---	NullPatch.txt
---- Patching fn keys ---	NullPatch.txt
+--- Ambient Light Sensor ---	NullPatch.txt
+[als] Fake ALS	patches/fake_als.txt
+[als] Patch ALSS	patches/patch_alss.txt
+[als] Patch ALSC	patches/patch_alsc.txt
+--- Keyboard Backlight ---	NullPatch.txt
+[kbl] Broadwell	patches/kbl_broadwell.txt
+[kbl] Kaby Lake/Kaby Lake-R	patches/kbl_kabylake.txt
+--- FN keys ---	NullPatch.txt

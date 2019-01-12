@@ -1,4 +1,6 @@
 #Maintained by hieplpvip
+#See https://github.com/hieplpvip/AsusSMC/wiki/Installation-Instruction
+#for how to use
 
 into_all device label ALS0 remove_entry;
 into scope label _SB insert begin

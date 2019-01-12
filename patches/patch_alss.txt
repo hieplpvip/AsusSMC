@@ -1,0 +1,15 @@
+#Maintained by hieplpvip
+#See https://github.com/hieplpvip/AsusSMC/wiki/Installation-Instruction
+#for how to use
+
+into method label ALSS parent_label ATKD remove_entry;
+into device label ATKD insert begin
+Method (ALSS, 0, NotSerialized)\n
+{\n
+    If (CondRefOf(^^PCI0.LPCB.EC0.RALS))\n
+    {\n
+        Return (^^PCI0.LPCB.EC0.RALS ())\n
+    }\n
+    Return (0x012C)\n
+}
+end;

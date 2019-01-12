@@ -1,0 +1,15 @@
+#Maintained by hieplpvip
+#See https://github.com/hieplpvip/AsusSMC/wiki/Installation-Instruction
+#for how to use
+
+into method label ALSC parent_label ATKD remove_entry;
+into device label ATKD insert begin
+Method (ALSC, 0, NotSerialized)\n
+{\n
+    If (CondRefOf(^^PCI0.LPCB.EC0.ALSC))\n
+    {\n
+        Return (^^PCI0.LPCB.EC0.ALSC (Arg0))\n
+    }\n
+    Return (0)\n
+}
+end;
