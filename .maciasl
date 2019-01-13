@@ -7,6 +7,8 @@
 [kbl] Kaby Lake/Kaby Lake-R	patches/kbl_kabylake.txt
 [fn] --> FN keys	patches/NullPatch.txt
 [fn] ALS toggle	patches/als_toggle.txt
+[fn] Media - arrow keys	patches/media_arrow.txt
+[fn] Media - Space, C, V	patches/media_cvspace.txt
 [fn] F1 key	patches/f1.txt
 [fn] F2 key	patches/f2.txt
 [fn] F3 key	patches/f3.txt
