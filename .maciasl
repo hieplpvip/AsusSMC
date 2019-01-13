@@ -3,7 +3,7 @@
 [als] Patch ALSS	patches/patch_alss.txt
 [als] Patch ALSC	patches/patch_alsc.txt
 [kbl] --> Keyboard Backlight	patches/NullPatch.txt
-[kbl] Haswell/Broadwell	patches/kbl_broadwell.txt
+[kbl] Haswell/Broadwell/Skylake	patches/kbl_broadwell.txt
 [kbl] Kaby Lake/Kaby Lake-R	patches/kbl_kabylake.txt
 [fn] --> FN keys	patches/NullPatch.txt
 [fn] ALS toggle	patches/als_toggle.txt
