@@ -39,6 +39,10 @@ struct guid_block {
     UInt8 flags;
 };
 
+struct bios_args {
+    UInt32 arg0;
+    UInt32 arg1;
+} __packed;
 
 /*
  * If the GUID data block is marked as expensive, we must enable and
@@ -305,8 +309,6 @@ protected:
 
     OSDictionary * properties;
 
-    OSDictionary* getDictByUUID(const char * guid);
-
     /**
      *  Initialize virtual HID keyboard
      */
@@ -350,10 +352,6 @@ protected:
      */
     void readPanelBrightnessValue();
 
-    void getDeviceStatus(const char * guid, UInt32 methodId, UInt32 deviceId, UInt32 *status);
-    void setDeviceStatus(const char * guid, UInt32 methodId, UInt32 deviceId, UInt32 *status);
-    void setDevice(const char * guid, UInt32 methodId, UInt32 *status);
-
     /**
      *  Send notifications to 3rd-party drivers (eg. VoodooI2C)
      */
@@ -390,44 +388,6 @@ protected:
 
 private:
     /**
-     * wmi_parse_hexbyte - Convert a ASCII hex number to a byte
-     * @param src  Pointer to at least 2 characters to convert.
-     *
-     * Convert a two character ASCII hex string to a number.
-     *
-     * @return  0-255  Success, the byte was parsed correctly
-     *          -1     Error, an invalid character was supplied
-     */
-    int wmi_parse_hexbyte(const UInt8 *src);
-
-    /**
-     * wmi_swap_bytes - Rearrange GUID bytes to match GUID binary
-     * @param src   Memory block holding binary GUID (16 bytes)
-     * @param dest  Memory block to hold byte swapped binary GUID (16 bytes)
-     *
-     * Byte swap a binary GUID to match it's real GUID value
-     */
-    void wmi_swap_bytes(UInt8 *src, UInt8 *dest);
-
-    /**
-     * wmi_parse_guid - Convert GUID from ASCII to binary
-     * @param src   36 char string of the form fa50ff2b-f2e8-45de-83fa-65417f2f49ba
-     * @param dest  Memory block to hold binary GUID (16 bytes)
-     *
-     * N.B. The GUID need not be NULL terminated.
-     *
-     * @return  'true'   @dest contains binary GUID
-     *          'false'  @dest contents are undefined
-     */
-    bool wmi_parse_guid(const UInt8 *src, UInt8 *dest);
-
-    /**
-     * wmi_dump_wdg - dumps tables to dmesg
-     * @param src guid_block *
-     */
-    void wmi_dump_wdg(struct guid_block *src);
-
-    /**
      * wmi_data2Str - converts binary guid to ascii guid
      *
      */
@@ -445,12 +405,16 @@ private:
      */
     void wmi_wdg2reg(struct guid_block *g, OSArray *array, OSArray *dataArray);
 
+    OSDictionary * readDataBlock(char *str);
+
     /**
      *  Parse the _WDG method for the GUID data blocks
      */
     int parse_wdg(OSDictionary *dict);
 
-    OSDictionary * readDataBlock(char *str);
+    OSDictionary* getDictByUUID(const char * guid);
+
+    int asus_wmi_evaluate_method(UInt32 method_id, UInt32 arg0, UInt32 arg1, UInt32 *retval);
 };
 
 #endif //_AsusSMC_hpp

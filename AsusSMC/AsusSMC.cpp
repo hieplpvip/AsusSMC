@@ -11,94 +11,8 @@ bool ADDPR(debugEnabled) = true;
 uint32_t ADDPR(debugPrintDelay) = 0;
 
 #pragma mark -
-#pragma mark GUID parsing functions ported from Linux
+#pragma mark WMI functions ported from Linux
 #pragma mark -
-
-int AsusSMC::wmi_parse_hexbyte(const UInt8 *src) {
-    unsigned int x; /* For correct wrapping */
-    int h;
-
-    /* high part */
-    x = src[0];
-    if (x - '0' <= '9' - '0') {
-        h = x - '0';
-    } else if (x - 'a' <= 'f' - 'a') {
-        h = x - 'a' + 10;
-    } else if (x - 'A' <= 'F' - 'A') {
-        h = x - 'A' + 10;
-    } else {
-        return -1;
-    }
-    h <<= 4;
-
-    /* low part */
-    x = src[1];
-    if (x - '0' <= '9' - '0')
-        return h | (x - '0');
-    if (x - 'a' <= 'f' - 'a')
-        return h | (x - 'a' + 10);
-    if (x - 'A' <= 'F' - 'A')
-        return h | (x - 'A' + 10);
-    return -1;
-}
-
-void AsusSMC::wmi_swap_bytes(UInt8 *src, UInt8 *dest) {
-    int i;
-
-    for (i = 0; i <= 3; i++)
-        lilu_os_memcpy(dest + i, src + (3 - i), 1);
-
-    for (i = 0; i <= 1; i++)
-        lilu_os_memcpy(dest + 4 + i, src + (5 - i), 1);
-
-    for (i = 0; i <= 1; i++)
-        lilu_os_memcpy(dest + 6 + i, src + (7 - i), 1);
-
-    lilu_os_memcpy(dest + 8, src + 8, 8);
-}
-
-bool AsusSMC::wmi_parse_guid(const UInt8 *src, UInt8 *dest) {
-    static const int size[] = { 4, 2, 2, 2, 6 };
-    int i, j, v;
-
-    if (src[8]  != '-' || src[13] != '-' ||
-        src[18] != '-' || src[23] != '-')
-        return false;
-
-    for (j = 0; j < 5; j++, src++) {
-        for (i = 0; i < size[j]; i++, src += 2, *dest++ = v) {
-            v = wmi_parse_hexbyte(src);
-            if (v < 0)
-                return false;
-        }
-    }
-
-    return true;
-}
-
-void AsusSMC::wmi_dump_wdg(struct guid_block *src) {
-    char guid_string[37];
-
-    wmi_data2Str(src->guid, guid_string);
-    DBGLOG("guid", "%s:", guid_string);
-    if (src->flags & ACPI_WMI_EVENT)
-        DBGLOG("guid", "\tnotify_value: %02X", src->notify_id);
-    else
-        DBGLOG("guid", "\tobject_id: %c%c",src->object_id[0], src->object_id[1]);
-    DBGLOG("guid", "\tinstance_count: %d", src->instance_count);
-    DBGLOG("guid", "\tflags: %#x", src->flags);
-    if (src->flags) {
-        DBGLOG("guid", " ");
-        if (src->flags & ACPI_WMI_EXPENSIVE)
-            DBGLOG("guid", "ACPI_WMI_EXPENSIVE ");
-        if (src->flags & ACPI_WMI_METHOD)
-            DBGLOG("guid", "ACPI_WMI_METHOD ");
-        if (src->flags & ACPI_WMI_STRING)
-            DBGLOG("guid", "ACPI_WMI_STRING ");
-        if (src->flags & ACPI_WMI_EVENT)
-            DBGLOG("guid", "ACPI_WMI_EVENT ");
-    }
-}
 
 int AsusSMC::wmi_data2Str(const char *in, char *out) {
     int i;
@@ -233,6 +147,60 @@ int AsusSMC::parse_wdg(OSDictionary *dict) {
     } while (false);
 
     return 0;
+}
+
+int AsusSMC::asus_wmi_evaluate_method(UInt32 method_id, UInt32 arg0, UInt32 arg1, UInt32 *retval) {
+    char method[5];
+    OSString *str;
+    OSDictionary *dict = getDictByUUID(ASUS_WMI_MGMT_GUID);
+    if (NULL == dict)
+        return -1;
+    
+    str = OSDynamicCast(OSString, dict->getObject("object_id"));
+    if (NULL == str)
+        return -1;
+    
+    snprintf(method, 5, "WM%s", str->getCStringNoCopy());
+    
+    struct bios_args args = {
+        .arg0 = arg0,
+        .arg1 = arg1,
+    };
+    
+    char buffer[sizeof(args)*8];
+    lilu_os_memcpy(buffer, &args, sizeof(buffer)*8);
+    
+    OSObject * params[3];
+    UInt8 instance = 0;
+    params[0] = OSNumber::withNumber(instance, 8);
+    params[1] = OSNumber::withNumber(method_id, 32);
+    params[2] = OSData::withBytes(buffer, sizeof(buffer)*8);
+    
+    OSObject *out;
+    atkDevice->evaluateObject(method, &out, params, 3);
+    
+    params[0]->release();
+    params[1]->release();
+    params[2]->release();
+    
+    return 0;
+}
+
+OSDictionary* AsusSMC::getDictByUUID(const char * guid) {
+    UInt32 i;
+    OSDictionary *dict = NULL;
+    OSString *uuid;
+    OSArray *array = OSDynamicCast(OSArray, properties->getObject("WDG"));
+    if (NULL == array)
+        return NULL;
+    for (i = 0; i < array->getCount(); i++) {
+        dict = OSDynamicCast(OSDictionary, array->getObject(i));
+        uuid = OSDynamicCast(OSString, dict->getObject("UUID"));
+        if (uuid->isEqualTo(guid)) {
+            break;
+        }
+    }
+    return dict;
 }
 
 #pragma mark -
@@ -696,119 +664,6 @@ void AsusSMC::readPanelBrightnessValue() {
         } else
             DBGLOG("atk", "Can't not find dictionary IODisplayParameters");
     }
-}
-
-void AsusSMC::getDeviceStatus(const char * guid, UInt32 methodId, UInt32 deviceId, UInt32 *status) {
-    DBGLOG("atk", "getDeviceStatus() called");
-
-    char method[5];
-    OSObject * params[3];
-    OSString *str;
-    OSDictionary *dict = getDictByUUID(guid);
-    if (NULL == dict)
-        return;
-
-    str = OSDynamicCast(OSString, dict->getObject("object_id"));
-    if (NULL == str)
-        return;
-
-    snprintf(method, 5, "WM%s", str->getCStringNoCopy());
-
-    params[0] = OSNumber::withNumber(0x00D,32);
-    params[1] = OSNumber::withNumber(methodId,32);
-    params[2] = OSNumber::withNumber(deviceId,32);
-
-    atkDevice->evaluateInteger(method, status, params, 3);
-
-    params[0]->release();
-    params[1]->release();
-    params[2]->release();
-}
-
-void AsusSMC::setDeviceStatus(const char * guid, UInt32 methodId, UInt32 deviceId, UInt32 *status) {
-    DBGLOG("atk", "setDeviceStatus() called");
-
-    char method[5];
-    char buffer[8];
-    OSObject * params[3];
-    OSString *str;
-    OSDictionary *dict = getDictByUUID(guid);
-    if (NULL == dict)
-        return;
-
-    str = OSDynamicCast(OSString, dict->getObject("object_id"));
-    if (NULL == str)
-        return;
-
-    snprintf(method, 5, "WM%s", str->getCStringNoCopy());
-
-    lilu_os_memcpy(buffer, &deviceId, 4);
-    lilu_os_memcpy(buffer+4, status, 4);
-
-    params[0] = OSNumber::withNumber(0x00D,32);
-    params[1] = OSNumber::withNumber(methodId,32);
-    params[2] = OSData::withBytes(buffer, 8);
-
-    *status = ~0;
-    atkDevice->evaluateInteger(method, status, params, 3);
-
-    DBGLOG("atk", "setDeviceStatus Res = %x", (unsigned int)*status);
-
-    params[0]->release();
-    params[1]->release();
-    params[2]->release();
-}
-
-void AsusSMC::setDevice(const char * guid, UInt32 methodId, UInt32 *status) {
-    DBGLOG("atk", "setDevice(%d)", (int)*status);
-
-    char method[5];
-    char buffer[4];
-    OSObject * params[3];
-    OSString *str;
-    OSDictionary *dict = getDictByUUID(guid);
-    if (NULL == dict)
-        return;
-
-    str = OSDynamicCast(OSString, dict->getObject("object_id"));
-    if (NULL == str)
-        return;
-
-    snprintf(method, 5, "WM%s", str->getCStringNoCopy());
-
-    lilu_os_memcpy(buffer, status, 4);
-
-    params[0] = OSNumber::withNumber(0x00D,32);
-    params[1] = OSNumber::withNumber(methodId,32);
-    params[2] = OSData::withBytes(buffer, 8);
-
-    *status = ~0;
-    atkDevice->evaluateInteger(method, status, params, 3);
-
-    DBGLOG("atk", "setDevice Res = %x", (unsigned int)*status);
-
-    params[0]->release();
-    params[1]->release();
-    params[2]->release();
-
-    return;
-}
-
-OSDictionary* AsusSMC::getDictByUUID(const char * guid) {
-    UInt32 i;
-    OSDictionary *dict = NULL;
-    OSString *uuid;
-    OSArray *array = OSDynamicCast(OSArray, properties->getObject("WDG"));
-    if (NULL == array)
-        return NULL;
-    for (i = 0; i < array->getCount(); i++) {
-        dict = OSDynamicCast(OSDictionary, array->getObject(i));
-        uuid = OSDynamicCast(OSString, dict->getObject("UUID"));
-        if (uuid->isEqualTo(guid)) {
-            break;
-        }
-    }
-    return dict;
 }
 
 #pragma mark -
