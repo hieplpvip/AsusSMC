@@ -149,43 +149,6 @@ int AsusSMC::parse_wdg(OSDictionary *dict) {
     return 0;
 }
 
-int AsusSMC::asus_wmi_evaluate_method(UInt32 method_id, UInt32 arg0, UInt32 arg1, UInt32 *retval) {
-    char method[5];
-    OSString *str;
-    OSDictionary *dict = getDictByUUID(ASUS_WMI_MGMT_GUID);
-    if (NULL == dict)
-        return -1;
-    
-    str = OSDynamicCast(OSString, dict->getObject("object_id"));
-    if (NULL == str)
-        return -1;
-    
-    snprintf(method, 5, "WM%s", str->getCStringNoCopy());
-    
-    struct bios_args args = {
-        .arg0 = arg0,
-        .arg1 = arg1,
-    };
-    
-    char buffer[sizeof(args)*8];
-    lilu_os_memcpy(buffer, &args, sizeof(buffer)*8);
-    
-    OSObject * params[3];
-    UInt8 instance = 0;
-    params[0] = OSNumber::withNumber(instance, 8);
-    params[1] = OSNumber::withNumber(method_id, 32);
-    params[2] = OSData::withBytes(buffer, sizeof(buffer)*8);
-    
-    OSObject *out;
-    atkDevice->evaluateObject(method, &out, params, 3);
-    
-    params[0]->release();
-    params[1]->release();
-    params[2]->release();
-    
-    return 0;
-}
-
 OSDictionary* AsusSMC::getDictByUUID(const char * guid) {
     UInt32 i;
     OSDictionary *dict = NULL;
