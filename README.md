@@ -1,6 +1,6 @@
 # AsusSMC
 
-![release](https://img.shields.io/github/release/hieplpvip/AsusSMC.svg) [![Scan Status](https://scan.coverity.com/projects/18304/badge.svg?flat=1)](https://scan.coverity.com/projects/18304)
+![release](https://img.shields.io/github/release/hieplpvip/AsusSMC.svg) [![Build Status](https://travis-ci.org/hieplpvip/AsusSMC.svg?branch=master)](https://travis-ci.org/hieplpvip/AsusSMC) [![Scan Status](https://scan.coverity.com/projects/18304/badge.svg?flat=1)](https://scan.coverity.com/projects/18304)
 
 A VirtualSMC plugin provides native support for ALS, keyboard backlight and Fn keys for Asus laptops on macOS.
 
