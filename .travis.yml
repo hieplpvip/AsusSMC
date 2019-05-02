@@ -1,0 +1,47 @@
+language: cpp
+
+env:
+  global:
+   - secure: "bvhrPd1HD5x/7jfrelyBu7w3xFxPcM+7lEz8pXMD4rpRfu2g8ZvhYkqp2Tys2vQAVezxoy28jbOWD3p82x/necVycGYh9glYWMIkKlBryyqKywKH48t/2D8IzLYBtoZdgMvzK+9uC1yvqZqzJ5yt1cfF/6CRo8Y2sYz0A0Lg713khEZwP1FhDGM6NsxNCyPx8sFnsMQAodWpLCGmW0bED6fFrvwDYGOAGnch0Qw1nDUyahuR4o7fIfH6qP2H+wCULL2e6Ov4oDDEuHPRp/UFckD/SQRNIp68IsWY1QadI1JE4MV2AvIDouoqawOKfjKHwHnrq/2yynqrWauXTEVXugxS7o4yKcbFOvQqXqv54azsFNYScde0B54urJJygDwL9ET4JvtSe/HdaNLmWGUjuA0PPyODl+Ti+EaW2M/3GW5Rhd8+IjQumo0fTEgue2aaecNu5K+EJLS2eOEdY6BIIFDF4fWIExy/J7mVI5ozd4zRAVi1+iI0wdMSyHs+EdZP+iG102Chl+T9zIAnkCm4J+MixowgP1m3++X7teS55B62WciINWqBjfkFghwyfcx3qgfmnazQSq5REIAudDxTh44LYXVuW36iVRFb8Vp9mXCYywCTVJWkqYxpudcSXeRdMICFEql2tIw1w20LgjQ8uYMIVMqnNGOU4uBse4fnOXA="
+
+matrix:
+  include:
+  - os: osx
+    compiler: clang
+
+    script:
+      - src=$(/usr/bin/curl -Lfs https://raw.githubusercontent.com/hieplpvip/AsusSMC/master/Scripts/bootstrap.sh) && eval "$src" || exit 1
+      - xcodebuild -target Package -configuration Debug
+      - xcodebuild -target Package -configuration Release
+
+    deploy:
+      provider: releases
+      skip_cleanup: true
+      file: "build/*.zip"
+      file_glob: true
+      api_key:
+        secure: "BOTxFlC2lE8LtOZ0eVXz5eQRV21a248Rirr3Fvsj51kzvUpExtcdlpWv+xFOlIIqsZb2luzj6q1cG8bNpWWp2/EseHdtWqF2/ZwfBLs2XdXTyS5aunUxbZ4FHLhMPDRgNunTcoZuzMRtSAyNl5maGKveKN9irWwI1HbKOh4p9jQDATA2QNDC6v/uQ1fJR3Vjiye9nIKk6SOhmy62qBCjLzEEe0SiRYw2ewMjm0eybfHt3YNwRy2lBfKXpnxsapA41kq4B/ThoJk3TFmRRZDzveJin20CXI2L2jvN9K2d2gWncHG5oRV63m+4CBGl7MLxJaAHD7flGmr4l2qFbIUgMXGlKmQSo7SJEO09K6weG2n6duqXxprnQSyFCOERRu0KyDPHnSUkr6y5FBTkkV3YMOUXRVUk7pA+kOlKjV89O6WLxpirZ9NzGz9jlKg32wTTyj9UBYcrCDIOravL/eTZ7g+xdXNV9vKyhsN2v3iPmHQ+DNJ73DdZjhj+BFT56E8Fz+r5aF13Z6tGVChKNqe3+CYih59Tgzwd+y5YU0Et4b/55Qkh/MexXm8YqJNzzZD7jRKpP3zlOFNuAxIDlBXYUtfgYh5CmcXlOgk8626JDFUSakjwYfxE2+rpQxyhAVNn/etmaSOfsL1pbKDjE1aM0M4Pho68dOju/k4Vb0x4FgA="
+      on:
+        tags: true
+
+  - os: osx
+    compiler: clang
+
+    before_install:
+      - curl -Ls https://entrust.com/root-certificates/entrust_l1k.cer -o ~/entrust_l1k.crt || exit 1
+      - curl -LS https://curl.haxx.se/ca/cacert.pem -o ~/cacert.pem || exit 1
+      - cat ~/entrust_l1k.crt >> ~/cacert.pem || exit 1
+      - echo "cacert=\"$HOME/cacert.pem\"" > ~/.curlrc || exit 1
+      - echo "ca_certificate=$HOME/cacert.pem" > ~/.wgetrc || exit 1
+    script:
+      - echo "This script runs coverity..."
+
+    addons:
+      coverity_scan:
+        project:
+          name: "hieplpvip/AsusSMC"
+          description: "AsusSMC"
+        notification_email: $NOTIFICATION_EMAIL
+        build_command_prepend: "src=$(/usr/bin/curl -Lfs https://raw.githubusercontent.com/hieplpvip/AsusSMC/master/Scripts/bootstrap.sh) && eval \"$src\" || exit 1 ; src=$(/usr/bin/curl -Lfs https://raw.githubusercontent.com/acidanthera/Lilu/master/Lilu/Scripts/covstrap.sh) && eval \"$src\" || exit 1"
+        build_command: "xcodebuild -target Package -configuration Release"
+        branch_pattern: master
