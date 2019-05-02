@@ -174,27 +174,6 @@ OSDictionary* AsusSMC::getDictByUUID(const char * guid) {
 
 OSDefineMetaClassAndStructors(AsusSMC, IOService)
 
-const FnKeysKeyMap AsusSMC::keyMap[] = {
-    {0x30, kHIDUsage_Csmr_VolumeIncrement, ReportType::keyboard_input},
-    {0x31, kHIDUsage_Csmr_VolumeDecrement, ReportType::keyboard_input},
-    {0x32, kHIDUsage_Csmr_Mute, ReportType::keyboard_input},
-    {0x61, kHIDUsage_AV_TopCase_VideoMirror, ReportType::apple_vendor_top_case_input},
-    {0x10, kHIDUsage_AV_TopCase_BrightnessUp, ReportType::apple_vendor_top_case_input},
-    {0x20, kHIDUsage_AV_TopCase_BrightnessDown, ReportType::apple_vendor_top_case_input},
-    // Keyboard backlight
-    {0xC5, kHIDUsage_AV_TopCase_IlluminationDown, ReportType::apple_vendor_top_case_input},
-    {0xC4, kHIDUsage_AV_TopCase_IlluminationUp, ReportType::apple_vendor_top_case_input},
-    // Media buttons bound to Asus events keys Down, Left and Right Arrows in full keyboard
-    {0x40, kHIDUsage_Csmr_ScanPreviousTrack, ReportType::keyboard_input},
-    {0x41, kHIDUsage_Csmr_ScanNextTrack, ReportType::keyboard_input},
-    {0x45, kHIDUsage_Csmr_PlayOrPause, ReportType::keyboard_input},
-    // Media button bound to Asus events keys C, V and Space keys in compact keyboard
-    {0x8A, kHIDUsage_Csmr_ScanPreviousTrack, ReportType::keyboard_input},
-    {0x82, kHIDUsage_Csmr_ScanNextTrack, ReportType::keyboard_input},
-    {0x5C, kHIDUsage_Csmr_PlayOrPause, ReportType::keyboard_input},
-    {0,0xFF,ReportType::none}
-};
-
 bool AsusSMC::init(OSDictionary *dict) {
     _notificationServices = OSSet::withCapacity(1);
 
@@ -376,22 +355,51 @@ void AsusSMC::handleMessage(int code) {
             // ignore silently
             break;
 
-        // Backlight
-        case 0x33:// hardwired On
-        case 0x34:// hardwired Off
-        case 0x35:// Soft Event, Fn + F7
-            if (isPanelBackLightOn) {
-                code = NOTIFY_BRIGHTNESS_DOWN_MIN;
-                loopCount = 16;
+        case 0x30: // Volume up
+            dispatchKBReport(kHIDUsage_Csmr_VolumeIncrement);
+            break;
 
+        case 0x31: // Volume down
+            dispatchKBReport(kHIDUsage_Csmr_VolumeDecrement);
+            break;
+
+        case 0x32: // Mute
+            dispatchKBReport(kHIDUsage_Csmr_Mute);
+            break;
+
+        // Media buttons
+        case 0x40:
+        case 0x8A:
+            dispatchKBReport(kHIDUsage_Csmr_ScanPreviousTrack);
+            break;
+
+        case 0x41:
+        case 0x82:
+            dispatchKBReport(kHIDUsage_Csmr_ScanNextTrack);
+            break;
+
+        case 0x45:
+        case 0x5C:
+            dispatchKBReport(kHIDUsage_Csmr_PlayOrPause);
+            break;
+
+        case 0x33: // hardwired On
+        case 0x34: // hardwired Off
+        case 0x35: // Soft Event, Fn + F7
+            if (isPanelBackLightOn) {
                 // Read Panel brigthness value to restore later with backlight toggle
                 readPanelBrightnessValue();
+
+                dispatchTCReport(kHIDUsage_AV_TopCase_BrightnessDown, 16);
             } else {
-                code = NOTIFY_BRIGHTNESS_UP_MIN;
-                loopCount = panelBrightnessLevel;
+                dispatchTCReport(kHIDUsage_AV_TopCase_BrightnessUp, panelBrightnessLevel);
             }
 
             isPanelBackLightOn = !isPanelBackLightOn;
+            break;
+
+        case 0x61: // Video Mirror
+            dispatchTCReport(kHIDUsage_AV_TopCase_VideoMirror);
             break;
 
         case 0x6B: // Fn + F9, Touchpad On/Off
@@ -426,95 +434,26 @@ void AsusSMC::handleMessage(int code) {
 
         case 0xC6:
         case 0xC7: // ALS Notifcations
-            if (hasALSensor) {
-                UInt32 alsValue = 0;
-                atkDevice->evaluateInteger("ALSS", &alsValue, NULL, NULL);
-                DBGLOG("atk", "ALS %d", alsValue);
-            }
+            // ignore
             break;
 
-        case 0xC5: // Fn + F3, Decrease Keyboard Backlight
-        case 0xC4: // Fn + F4, Increase Keyboard Backlight
-            if (!hasKeybrdBLight) code = 0;
+        case 0xC5: // Keyboard Backlight Down
+            if (hasKeybrdBLight) dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationDown);
+            break;
+
+        case 0xC4: // Keyboard Backlight Up
+            if (hasKeybrdBLight) dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationUp);
             break;
 
         default:
-            if (code >= NOTIFY_BRIGHTNESS_DOWN_MIN && code<= NOTIFY_BRIGHTNESS_DOWN_MAX) {
-                // Fn + F5, Panel Brightness Down
-                code = NOTIFY_BRIGHTNESS_DOWN_MIN;
-
-                if (panelBrightnessLevel > 0)
-                    panelBrightnessLevel--;
-            } else if (code >= NOTIFY_BRIGHTNESS_UP_MIN && code<= NOTIFY_BRIGHTNESS_UP_MAX) {
-                // Fn + F6, Panel Brightness Up
-                code = NOTIFY_BRIGHTNESS_UP_MIN;
-
-                panelBrightnessLevel++;
-                if (panelBrightnessLevel>16)
-                    panelBrightnessLevel = 16;
-            }
+            if (code >= NOTIFY_BRIGHTNESS_DOWN_MIN && code<= NOTIFY_BRIGHTNESS_DOWN_MAX) // Brightness Down
+                dispatchTCReport(kHIDUsage_AV_TopCase_BrightnessDown);
+            else if (code >= NOTIFY_BRIGHTNESS_UP_MIN && code<= NOTIFY_BRIGHTNESS_UP_MAX) // Brightness Up
+                dispatchTCReport(kHIDUsage_AV_TopCase_BrightnessUp);
             break;
     }
 
     DBGLOG("atk", "Received Key %d(0x%x)", code, code);
-
-    // Sending the code for the keyboard handler
-    processFnKeyEvents(code, loopCount);
-}
-
-void AsusSMC::processFnKeyEvents(int code, int bLoopCount) {
-    // TO-DO: rewrite this
-    int i = 0, out;
-    ReportType type;
-    do {
-        if (keyMap[i].type == ReportType::none && keyMap[i].in == 0 && keyMap[i].out == 0xFF) {
-            DBGLOG("atk", "Unknown key %02X i=%d", code, i);
-            return;
-        }
-        if (keyMap[i].in == code) {
-            DBGLOG("atk", "Key Pressed %02X i=%d", code, i);
-            out = keyMap[i].out;
-            type = keyMap[i].type;
-            break;
-        }
-        i++;
-    } while (true);
-
-    if (type == ReportType::keyboard_input) {
-        if (bLoopCount > 0) {
-            while (bLoopCount--) {
-                kbreport.keys.insert(out);
-                postKeyboardInputReport(&kbreport, sizeof(kbreport));
-                kbreport.keys.erase(out);
-                postKeyboardInputReport(&kbreport, sizeof(kbreport));
-            }
-            DBGLOG("atk", "Loop Count %d, Dispatch Key %d(0x%x)", bLoopCount, code, code);
-        } else {
-            kbreport.keys.insert(out);
-            postKeyboardInputReport(&kbreport, sizeof(kbreport));
-            kbreport.keys.erase(out);
-            postKeyboardInputReport(&kbreport, sizeof(kbreport));
-            DBGLOG("atk", "Dispatch Key %d(0x%x)", code, code);
-        }
-    }
-
-    else if (type == ReportType::apple_vendor_top_case_input) {
-        if (bLoopCount > 0) {
-            while (bLoopCount--) {
-                tcreport.keys.insert(out);
-                postKeyboardInputReport(&tcreport, sizeof(tcreport));
-                tcreport.keys.erase(out);
-                postKeyboardInputReport(&tcreport, sizeof(tcreport));
-            }
-            DBGLOG("atk", "Loop Count %d, Dispatch Key %d(0x%x)", bLoopCount, code, code);
-        } else {
-            tcreport.keys.insert(out);
-            postKeyboardInputReport(&tcreport, sizeof(tcreport));
-            tcreport.keys.erase(out);
-            postKeyboardInputReport(&tcreport, sizeof(tcreport));
-            DBGLOG("atk", "Dispatch Key %d(0x%x)", code, code);
-        }
-    }
 }
 
 void AsusSMC::checkKBALS() {
@@ -658,6 +597,28 @@ IOReturn AsusSMC::postKeyboardInputReport(const void* report, uint32_t reportSiz
     }
 
     return result;
+}
+
+void AsusSMC::dispatchKBReport(int code, int bLoopCount)
+{
+    DBGLOG("atk", "Loop Count %d, dispatch Key %d(0x%x)", bLoopCount, code, code);
+    while (bLoopCount--) {
+        kbreport.keys.insert(code);
+        postKeyboardInputReport(&kbreport, sizeof(kbreport));
+        kbreport.keys.erase(code);
+        postKeyboardInputReport(&kbreport, sizeof(kbreport));
+    }
+}
+
+void AsusSMC::dispatchTCReport(int code, int bLoopCount)
+{
+    DBGLOG("atk", "Loop Count %d, dispatch Key %d(0x%x)", bLoopCount, code, code);
+    while (bLoopCount--) {
+        tcreport.keys.insert(code);
+        postKeyboardInputReport(&tcreport, sizeof(tcreport));
+        tcreport.keys.erase(code);
+        postKeyboardInputReport(&tcreport, sizeof(tcreport));
+    }
 }
 
 #pragma mark -
@@ -814,6 +775,8 @@ bool AsusSMC::refreshSensor(bool post) {
         VirtualSMCAPI::postInterrupt(SmcEventALSChange);
         poller->setTimeoutMS(SensorUpdateTimeoutMS);
     }
+
+    DBGLOG("alsd", "refreshSensor lux %u", lux);
 
     return ret == kIOReturnSuccess;
 }

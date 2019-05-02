@@ -86,12 +86,6 @@ enum ReportType {
     apple_vendor_keyboard_input = 4,
 };
 
-typedef struct  {
-    UInt16 in;
-    UInt8 out;
-    ReportType type;
-} FnKeysKeyMap;
-
 class EXPORT AsusSMC : public IOService {
     OSDeclareDefaultStructors(AsusSMC)
 
@@ -172,11 +166,6 @@ protected:
     karabiner_virtual_hid_device::hid_report::apple_vendor_top_case_input tcreport;
 
     /**
-     *  Map Fn key events to Apple keyboard codes
-     */
-    static const FnKeysKeyMap keyMap[];
-
-    /**
      *  Touchpad enabled status
      */
     bool touchpadEnabled {true};
@@ -204,29 +193,14 @@ protected:
     OSDictionary * properties;
 
     /**
-     *  Initialize virtual HID keyboard
-     */
-    void initVirtualKeyboard();
-
-    /**
-     *  Check ALS and keyboard backlight availability
-     */
-    void checkKBALS();
-
-    /**
      *  Handle message from ATK
      */
     void handleMessage(int code);
 
     /**
-     *  Simulate keyboard events, taken from Karabiner-Elements
+     *  Check ALS and keyboard backlight availability
      */
-    IOReturn postKeyboardInputReport(const void* report, uint32_t reportSize);
-
-    /**
-     *  Process keyboard events
-     */
-    void processFnKeyEvents(int code, int bLoopCount);
+    void checkKBALS();
 
     /**
      *  Enable/Disable ALS sensor
@@ -245,6 +219,19 @@ protected:
      *  Reading AppleBezel Values from Apple Backlight Panel driver for controlling the bezel levels
      */
     void readPanelBrightnessValue();
+
+    /**
+     *  Initialize virtual HID keyboard
+     */
+    void initVirtualKeyboard();
+
+    /**
+     *  Simulate keyboard events, taken from Karabiner-Elements
+     */
+    IOReturn postKeyboardInputReport(const void* report, uint32_t reportSize);
+
+    void dispatchKBReport(int code, int bLoopCount = 1);
+    void dispatchTCReport(int code, int bLoopCount = 1);
 
     /**
      *  Send notifications to 3rd-party drivers (eg. VoodooI2C)
