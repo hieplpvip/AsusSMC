@@ -38,7 +38,7 @@ int AsusSMC::wmi_data2Str(const char *in, char *out) {
     return 0;
 }
 
-OSString * AsusSMC::flagsToStr(UInt8 flags) {
+OSString *AsusSMC::flagsToStr(UInt8 flags) {
     char str[80];
     char *pos = str;
     if (flags != 0) {
@@ -84,81 +84,69 @@ void AsusSMC::wmi_wdg2reg(struct guid_block *g, OSArray *array, OSArray *dataArr
     }
     dict->setObject("instance_count", OSNumber::withNumber(g->instance_count, 8));
     dict->setObject("flags", OSNumber::withNumber(g->flags, 8));
-#if DEBUG
-    dict->setObject("flags Str", flagsToStr(g->flags));
-#endif
+    dict->setObject("flags_str", flagsToStr(g->flags));
     if (g->flags == 0)
         dataArray->setObject(readDataBlock(object_id_string));
 
     array->setObject(dict);
 }
 
-OSDictionary * AsusSMC::readDataBlock(char *str) {
-    OSObject    *wqxx;
-    OSData        *data = NULL;
-    OSDictionary *dict;
+OSDictionary *AsusSMC::readDataBlock(char *str) {
+    OSDictionary *dict = OSDictionary::withCapacity(1);
+
     char name[5];
-
     snprintf(name, 5, "WQ%s", str);
-    dict = OSDictionary::withCapacity(1);
 
-    do {
-        if (atkDevice->evaluateObject(name, &wqxx) != kIOReturnSuccess) {
-            SYSLOG("guid", "No object of method %s", name);
-            continue;
-        }
+    OSObject *wqxx;
+    if (atkDevice->evaluateObject(name, &wqxx) != kIOReturnSuccess) {
+        SYSLOG("guid", "No object of method %s", name);
+        return dict;
+    }
 
-        data = OSDynamicCast(OSData, wqxx);
-        if (data == NULL) {
-            SYSLOG("guid", "Cast error %s", name);
-            continue;
-        }
-        dict->setObject(name, data);
-    } while (false);
+    OSData *data = OSDynamicCast(OSData, wqxx);
+    if (!data) {
+        SYSLOG("guid", "Cast error %s", name);
+        return dict;
+    }
+    dict->setObject(name, data);
+
     return dict;
 }
 
 int AsusSMC::parse_wdg(OSDictionary *dict) {
-    UInt32 i, total;
     OSObject *wdg;
-    OSData *data;
-    OSArray *array, *dataArray;
+    if (atkDevice->evaluateObject("_WDG", &wdg) != kIOReturnSuccess) {
+        SYSLOG("guid", "No object of method _WDG");
+        return 0;
+    }
 
-    do {
-        if (atkDevice->evaluateObject("_WDG", &wdg) != kIOReturnSuccess) {
-            SYSLOG("guid", "No object of method _WDG");
-            continue;
-        }
+    OSData *data = OSDynamicCast(OSData, wdg);
+    if (!data) {
+        SYSLOG("guid", "Cast error _WDG");
+        return 0;
+    }
+    UInt32 total = data->getLength() / sizeof(struct guid_block);
+    OSArray *array = OSArray::withCapacity(total);
+    OSArray *dataArray = OSArray::withCapacity(1);
 
-        data = OSDynamicCast(OSData, wdg);
-        if (data == NULL) {
-            SYSLOG("guid", "Cast error _WDG");
-            continue;
-        }
-        total = data->getLength() / sizeof(struct guid_block);
-        array = OSArray::withCapacity(total);
-        dataArray = OSArray::withCapacity(1);
-
-        for (i = 0; i < total; i++)
-            wmi_wdg2reg((struct guid_block *) data->getBytesNoCopy(i * sizeof(struct guid_block), sizeof(struct guid_block)), array, dataArray);
-        setProperty("WDG", array);
-        setProperty("DataBlocks", dataArray);
-        data->release();
-    } while (false);
+    for (UInt32 i = 0; i < total; i++)
+        wmi_wdg2reg((struct guid_block *) data->getBytesNoCopy(i * sizeof(struct guid_block), sizeof(struct guid_block)), array, dataArray);
+    setProperty("WDG", array);
+    setProperty("DataBlocks", dataArray);
+    data->release();
 
     return 0;
 }
 
-OSDictionary* AsusSMC::getDictByUUID(const char * guid) {
-    UInt32 i;
-    OSDictionary *dict = NULL;
-    OSString *uuid;
+OSDictionary *AsusSMC::getDictByUUID(const char *guid) {
     OSArray *array = OSDynamicCast(OSArray, properties->getObject("WDG"));
-    if (NULL == array)
+    if (!array)
         return NULL;
-    for (i = 0; i < array->getCount(); i++) {
+
+    OSDictionary *dict = NULL;
+    for (UInt32 i = 0; i < array->getCount(); i++) {
         dict = OSDynamicCast(OSDictionary, array->getObject(i));
-        uuid = OSDynamicCast(OSString, dict->getObject("UUID"));
+        OSString *uuid = OSDynamicCast(OSString, dict->getObject("UUID"));
         if (uuid->isEqualTo(guid)) {
             break;
         }
@@ -180,44 +168,44 @@ bool AsusSMC::init(OSDictionary *dict) {
     kev.setVendorID("com.hieplpvip");
     kev.setEventCode(AsusSMCEventCode);
 
+    atomic_init(&currentLux, 0);
+
     bool result = super::init(dict);
     properties = dict;
-    DBGLOG("atk", "Init AsusSMC");
+
+    DBGLOG("atk", "AsusSMC Inited");
     return result;
 }
 
-IOService * AsusSMC::probe(IOService *provider, SInt32 *score) {
-    IOService * ret = NULL;
-    OSObject * obj;
-    OSString * name;
-    IOACPIPlatformDevice *dev;
-    do {
-        if (!super::probe(provider, score))
-            continue;
+IOService *AsusSMC::probe(IOService *provider, SInt32 *score) {
+    IOService *ret = NULL;
 
-        dev = OSDynamicCast(IOACPIPlatformDevice, provider);
-        if (NULL == dev)
-            continue;
+    if (!super::probe(provider, score))
+        return ret;
 
-        dev->evaluateObject("_UID", &obj);
+    IOACPIPlatformDevice *dev = OSDynamicCast(IOACPIPlatformDevice, provider);
+    if (!dev)
+        return ret;
 
-        name = OSDynamicCast(OSString, obj);
-        if (NULL == name)
-            continue;
+    OSObject *obj;
+    dev->evaluateObject("_UID", &obj);
 
-        if (name->isEqualTo("ATK")) {
-            *score +=20;
-            ret = this;
-        }
-        name->release();
-    } while (false);
+    OSString *name = OSDynamicCast(OSString, obj);
+    if (!name)
+        return ret;
 
-    return (ret);
+    if (name->isEqualTo("ATK")) {
+        *score +=20;
+        ret = this;
+    }
+    name->release();
+
+    return ret;
 }
 
 bool AsusSMC::start(IOService *provider) {
     if (!provider || !super::start(provider)) {
-        SYSLOG("atk", "%s::Error loading kext");
+        SYSLOG("atk", "Error loading kext");
         return false;
     }
 
@@ -255,9 +243,9 @@ bool AsusSMC::start(IOService *provider) {
 
     workloop->addEventSource(command_gate);
 
-    setProperty("TouchpadEnabled", true);
+    setProperty("IsTouchpadEnabled", true);
 
-    setProperty("Copyright", "Copyright © 2018 hieplpvip");
+    setProperty("Copyright", "Copyright © 2019 hieplpvip");
 
     return true;
 }
@@ -307,30 +295,29 @@ IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService *what
 #pragma mark AsusSMC Methods
 #pragma mark -
 
-IOReturn AsusSMC::message(UInt32 type, IOService * provider, void * argument) {
+IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
     if (type == kIOACPIMessageDeviceNotification) {
+        OSObject *wed;
         UInt32 event = *((UInt32 *) argument);
-        OSObject * wed;
-
-        OSNumber * number = OSNumber::withNumber(event,32);
+        OSNumber *number = OSNumber::withNumber(event, 32);
         atkDevice->evaluateObject("_WED", &wed, (OSObject**)&number, 1);
         number->release();
         number = OSDynamicCast(OSNumber, wed);
-        if (NULL == number) {
+        if (!number) {
             // try a package
-            OSArray * array = OSDynamicCast(OSArray, wed);
-            if (NULL == array) {
+            OSArray *array = OSDynamicCast(OSArray, wed);
+            if (!array) {
                 // try a buffer
-                OSData * data = OSDynamicCast(OSData, wed);
-                if ((NULL == data) || (data->getLength() == 0)) {
+                OSData *data = OSDynamicCast(OSData, wed);
+                if ((!data) || (data->getLength() == 0)) {
                     DBGLOG("atk", "Fail to cast _WED returned objet %s", wed->getMetaClass()->getClassName());
                     return kIOReturnError;
                 }
-                const char * bytes = (const char *) data->getBytesNoCopy();
+                const char *bytes = (const char *) data->getBytesNoCopy();
                 number = OSNumber::withNumber(bytes[0],32);
             } else {
                 number = OSDynamicCast(OSNumber, array->getObject(0));
-                if (NULL == number) {
+                if (!number) {
                     DBGLOG("atk", "Fail to cast _WED returned 1st objet in array %s", array->getObject(0)->getMetaClass()->getClassName());
                     return kIOReturnError;
                 }
@@ -346,8 +333,6 @@ IOReturn AsusSMC::message(UInt32 type, IOService * provider, void * argument) {
 }
 
 void AsusSMC::handleMessage(int code) {
-    int loopCount = 0;
-
     // Processing the code
     switch (code) {
         case 0x57: // AC disconnected
@@ -405,13 +390,11 @@ void AsusSMC::handleMessage(int code) {
         case 0x6B: // Fn + F9, Touchpad On/Off
             touchpadEnabled = !touchpadEnabled;
             if (touchpadEnabled) {
-                setProperty("TouchpadEnabled", true);
-                removeProperty("TouchpadDisabled");
-                DBGLOG("atk", "Touchpad Enabled");
+                setProperty("IsTouchpadEnabled", true);
+                DBGLOG("atk", "Enabled Touchpad");
             } else {
-                removeProperty("TouchpadEnabled");
-                setProperty("TouchpadDisabled", true);
-                DBGLOG("atk", "Touchpad Disabled");
+                setProperty("IsTouchpadEnabled", false);
+                DBGLOG("atk", "Disabled Touchpad");
             }
 
             dispatchMessage(kKeyboardSetTouchStatus, &touchpadEnabled);
@@ -466,6 +449,7 @@ void AsusSMC::checkKBALS() {
         hasKeybrdBLight = false;
         DBGLOG("atk", "Keyboard backlight is not supported");
     }
+    setProperty("IsKeyboardBacklightSupported", hasKeybrdBLight);
 
     // Check ALS sensor
     if (atkDevice->validateObject("ALSC") == kIOReturnSuccess && atkDevice->validateObject("ALSS") == kIOReturnSuccess) {
@@ -477,17 +461,19 @@ void AsusSMC::checkKBALS() {
         hasALSensor = false;
         DBGLOG("atk", "No ALS sensors were found");
     }
+    setProperty("IsALSSupported", hasALSensor);
 }
 
 void AsusSMC::toggleALS(bool state) {
-    OSObject * params[1];
-    UInt32 res;
+    OSObject *params[1];
     params[0] = OSNumber::withNumber(state, 8);
 
+    UInt32 res;
     if (atkDevice->evaluateInteger("ALSC", &res, params, 1) == kIOReturnSuccess)
         DBGLOG("atk", "ALS %s %d", state ? "enabled" : "disabled", res);
     else
         DBGLOG("atk", "Failed to call ALSC");
+    setProperty("IsALSEnabled", state);
 }
 
 int AsusSMC::checkBacklightEntry() {
@@ -553,9 +539,9 @@ void AsusSMC::readPanelBrightnessValue() {
     IORegistryEntry *displayDeviceEntry = IORegistryEntry::fromPath(backlightEntry);
 
     if (displayDeviceEntry != NULL) {
-        if (OSDictionary* ioDisplayParaDict = OSDynamicCast(OSDictionary, displayDeviceEntry->getProperty("IODisplayParameters"))) {
-            if (OSDictionary* brightnessDict = OSDynamicCast(OSDictionary, ioDisplayParaDict->getObject("brightness"))) {
-                if (OSNumber* brightnessValue = OSDynamicCast(OSNumber, brightnessDict->getObject("value"))) {
+        if (OSDictionary *ioDisplayParaDict = OSDynamicCast(OSDictionary, displayDeviceEntry->getProperty("IODisplayParameters"))) {
+            if (OSDictionary *brightnessDict = OSDynamicCast(OSDictionary, ioDisplayParaDict->getObject("brightness"))) {
+                if (OSNumber *brightnessValue = OSDynamicCast(OSNumber, brightnessDict->getObject("value"))) {
                     panelBrightnessLevel = brightnessValue->unsigned32BitValue() / 64;
                     DBGLOG("atk", "Panel brightness level from AppleBacklightDisplay: %d", brightnessValue->unsigned32BitValue());
                     DBGLOG("atk", "Read panel brightness level: %d", panelBrightnessLevel);
@@ -582,7 +568,7 @@ void AsusSMC::initVirtualKeyboard() {
         _virtualKBrd->setCountryCode(0);
 }
 
-IOReturn AsusSMC::postKeyboardInputReport(const void* report, uint32_t reportSize) {
+IOReturn AsusSMC::postKeyboardInputReport(const void *report, uint32_t reportSize) {
     IOReturn result = kIOReturnError;
 
     if (!report || reportSize == 0) {
@@ -626,7 +612,7 @@ void AsusSMC::dispatchTCReport(int code, int bLoopCount)
 #pragma mark -
 
 void AsusSMC::registerNotifications() {
-    OSDictionary * propertyMatch = propertyMatching(OSSymbol::withCString(kDeliverNotifications), OSBoolean::withBoolean(true));
+    OSDictionary *propertyMatch = propertyMatching(OSSymbol::withCString(kDeliverNotifications), OSBoolean::withBoolean(true));
 
     IOServiceMatchingNotificationHandler notificationHandler = OSMemberFunctionCast(IOServiceMatchingNotificationHandler, this, &AsusSMC::notificationHandler);
 
@@ -645,7 +631,7 @@ void AsusSMC::registerNotifications() {
     propertyMatch->release();
 }
 
-void AsusSMC::notificationHandlerGated(IOService * newService, IONotifier * notifier) {
+void AsusSMC::notificationHandlerGated(IOService *newService, IONotifier *notifier) {
     if (notifier == _publishNotify) {
         SYSLOG("notify", "Notification consumer published: %s", newService->getName());
         _notificationServices->setObject(newService);
@@ -657,22 +643,22 @@ void AsusSMC::notificationHandlerGated(IOService * newService, IONotifier * noti
     }
 }
 
-bool AsusSMC::notificationHandler(void * refCon, IOService * newService, IONotifier * notifier) {
+bool AsusSMC::notificationHandler(void *refCon, IOService *newService, IONotifier *notifier) {
     command_gate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AsusSMC::notificationHandlerGated), newService, notifier);
     return true;
 }
 
-void AsusSMC::dispatchMessageGated(int* message, void* data) {
-    OSCollectionIterator* i = OSCollectionIterator::withCollection(_notificationServices);
+void AsusSMC::dispatchMessageGated(int *message, void *data) {
+    OSCollectionIterator *i = OSCollectionIterator::withCollection(_notificationServices);
 
     if (i != NULL) {
-        while (IOService* service = OSDynamicCast(IOService, i->getNextObject()))
+        while (IOService *service = OSDynamicCast(IOService, i->getNextObject()))
             service->message(*message, this, data);
         i->release();
     }
 }
 
-void AsusSMC::dispatchMessage(int message, void* data) {
+void AsusSMC::dispatchMessage(int message, void *data) {
     command_gate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AsusSMC::dispatchMessageGated), &message, data);
 }
 

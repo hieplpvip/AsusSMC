@@ -3,4 +3,5 @@ build
 Lilu.kext
 VirtualSMC.kext
 AsusSMC.xcodeproj/xcuserdata/
+AsusSMC.xcodeproj/xcshareddata/
 AsusSMC.xcodeproj/project.xcworkspace/

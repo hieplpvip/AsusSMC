@@ -76,7 +76,7 @@ const uint8_t reportDescriptor_[] = {
 
 int countryCode_;
 
-bool VirtualHIDKeyboard::handleStart(IOService* provider) {
+bool VirtualHIDKeyboard::handleStart(IOService *provider) {
     if (!super::handleStart(provider)) {
         return false;
     }
@@ -87,11 +87,11 @@ bool VirtualHIDKeyboard::handleStart(IOService* provider) {
     return true;
 }
 
-OSNumber* VirtualHIDKeyboard::newCountryCodeNumber() const {
+OSNumber *VirtualHIDKeyboard::newCountryCodeNumber() const {
     return OSNumber::withNumber(static_cast<uint32_t>(countryCode_), 32);
 }
 
-IOReturn VirtualHIDKeyboard::newReportDescriptor(IOMemoryDescriptor** descriptor) const {
+IOReturn VirtualHIDKeyboard::newReportDescriptor(IOMemoryDescriptor **descriptor) const {
     *descriptor = IOBufferMemoryDescriptor::withBytes(reportDescriptor_, sizeof(reportDescriptor_), kIODirectionNone);
     return kIOReturnSuccess;
 }

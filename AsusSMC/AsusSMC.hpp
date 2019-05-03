@@ -99,7 +99,7 @@ class EXPORT AsusSMC : public IOService {
     };
 
 public:
-    virtual IOReturn message(UInt32 type, IOService * provider, void * argument) override;
+    virtual IOReturn message(UInt32 type, IOService *provider, void *argument) override;
 
     // standard IOKit methods
     virtual bool init(OSDictionary *dictionary = 0) override;
@@ -112,10 +112,12 @@ public:
 
 protected:
 
+    OSDictionary *properties {nullptr};
+
     /**
      *  Asus ATK device
      */
-    IOACPIPlatformDevice * atkDevice;
+    IOACPIPlatformDevice *atkDevice {nullptr};
 
     /**
      *  Current lux value obtained from ACPI
@@ -140,7 +142,7 @@ protected:
     /**
      *  Executes an action on the driver's work-loop
      */
-    IOCommandGate* command_gate;
+    IOCommandGate *command_gate {nullptr};
 
     /**
      *  Workloop timer event source for status updates
@@ -160,7 +162,7 @@ protected:
     /**
      *  Virtual keyboard device
      */
-    VirtualHIDKeyboard *_virtualKBrd;
+    VirtualHIDKeyboard *_virtualKBrd {nullptr};
 
     karabiner_virtual_hid_device::hid_report::keyboard_input kbreport;
     karabiner_virtual_hid_device::hid_report::apple_vendor_top_case_input tcreport;
@@ -189,8 +191,6 @@ protected:
      *  Backlight status (Fn+F7)
      */
     bool isPanelBackLightOn {true};
-
-    OSDictionary * properties;
 
     /**
      *  Handle message from ATK
@@ -228,7 +228,7 @@ protected:
     /**
      *  Simulate keyboard events, taken from Karabiner-Elements
      */
-    IOReturn postKeyboardInputReport(const void* report, uint32_t reportSize);
+    IOReturn postKeyboardInputReport(const void *report, uint32_t reportSize);
 
     void dispatchKBReport(int code, int bLoopCount = 1);
     void dispatchTCReport(int code, int bLoopCount = 1);
@@ -236,13 +236,13 @@ protected:
     /**
      *  Send notifications to 3rd-party drivers (eg. VoodooI2C)
      */
-    IONotifier* _publishNotify;
-    IONotifier* _terminateNotify;
-    OSSet* _notificationServices;
+    IONotifier *_publishNotify {nullptr};
+    IONotifier *_terminateNotify {nullptr};
+    OSSet *_notificationServices {nullptr};
     void registerNotifications(void);
-    void notificationHandlerGated(IOService * newService, IONotifier * notifier);
-    bool notificationHandler(void * refCon, IOService * newService, IONotifier * notifier);
-    void dispatchMessageGated(int* message, void* data);
+    void notificationHandlerGated(IOService *newService, IONotifier *notifier);
+    bool notificationHandler(void *refCon, IOService *newService, IONotifier *notifier);
+    void dispatchMessageGated(int *message, void *data);
     void dispatchMessage(int message, void* data);
 
     /**
@@ -293,7 +293,7 @@ private:
      */
     int parse_wdg(OSDictionary *dict);
 
-    OSDictionary* getDictByUUID(const char * guid);
+    OSDictionary *getDictByUUID(const char *guid);
 };
 
 #endif //_AsusSMC_hpp
