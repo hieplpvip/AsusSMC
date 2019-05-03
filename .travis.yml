@@ -1,9 +1,5 @@
 language: cpp
 
-env:
-  global:
-   - secure: "bvhrPd1HD5x/7jfrelyBu7w3xFxPcM+7lEz8pXMD4rpRfu2g8ZvhYkqp2Tys2vQAVezxoy28jbOWD3p82x/necVycGYh9glYWMIkKlBryyqKywKH48t/2D8IzLYBtoZdgMvzK+9uC1yvqZqzJ5yt1cfF/6CRo8Y2sYz0A0Lg713khEZwP1FhDGM6NsxNCyPx8sFnsMQAodWpLCGmW0bED6fFrvwDYGOAGnch0Qw1nDUyahuR4o7fIfH6qP2H+wCULL2e6Ov4oDDEuHPRp/UFckD/SQRNIp68IsWY1QadI1JE4MV2AvIDouoqawOKfjKHwHnrq/2yynqrWauXTEVXugxS7o4yKcbFOvQqXqv54azsFNYScde0B54urJJygDwL9ET4JvtSe/HdaNLmWGUjuA0PPyODl+Ti+EaW2M/3GW5Rhd8+IjQumo0fTEgue2aaecNu5K+EJLS2eOEdY6BIIFDF4fWIExy/J7mVI5ozd4zRAVi1+iI0wdMSyHs+EdZP+iG102Chl+T9zIAnkCm4J+MixowgP1m3++X7teS55B62WciINWqBjfkFghwyfcx3qgfmnazQSq5REIAudDxTh44LYXVuW36iVRFb8Vp9mXCYywCTVJWkqYxpudcSXeRdMICFEql2tIw1w20LgjQ8uYMIVMqnNGOU4uBse4fnOXA="
-
 matrix:
   include:
   - os: osx
