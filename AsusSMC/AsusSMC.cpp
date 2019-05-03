@@ -179,31 +179,28 @@ bool AsusSMC::init(OSDictionary *dict) {
 
 IOService *AsusSMC::probe(IOService *provider, SInt32 *score) {
     IOService *ret = NULL;
+
+    if (!super::probe(provider, score))
+        return ret;
+
+    IOACPIPlatformDevice *dev = OSDynamicCast(IOACPIPlatformDevice, provider);
+    if (!dev)
+        return ret;
+
     OSObject *obj;
-    OSString *name;
-    IOACPIPlatformDevice *dev;
-    do {
-        if (!super::probe(provider, score))
-            continue;
+    dev->evaluateObject("_UID", &obj);
 
-        dev = OSDynamicCast(IOACPIPlatformDevice, provider);
-        if (!dev)
-            continue;
+    OSString *name = OSDynamicCast(OSString, obj);
+    if (!name)
+        return ret;
 
-        dev->evaluateObject("_UID", &obj);
+    if (name->isEqualTo("ATK")) {
+        *score +=20;
+        ret = this;
+    }
+    name->release();
 
-        name = OSDynamicCast(OSString, obj);
-        if (!name)
-            continue;
-
-        if (name->isEqualTo("ATK")) {
-            *score +=20;
-            ret = this;
-        }
-        name->release();
-    } while (false);
-
-    return (ret);
+    return ret;
 }
 
 bool AsusSMC::start(IOService *provider) {
