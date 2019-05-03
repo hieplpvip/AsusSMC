@@ -28,6 +28,7 @@ SMC_RESULT SMCALSValue::readAccess() {
 }
 
 SMC_RESULT SMCKBrdBLightValue::update(const SMC_DATA *src)  {
+    // Call ACPI method to adjust keyboard backlight
     lkb *value = new lkb;
     lilu_os_memcpy(value, src, size);
     if (atkDevice) {
@@ -40,6 +41,9 @@ SMC_RESULT SMCKBrdBLightValue::update(const SMC_DATA *src)  {
 
         atkDevice->evaluateObject("SKBV", &ret, params, 1);
     }
+    delete value;
+
+    // Write value to SMC
     lilu_os_memcpy(data, src, size);
     return SmcSuccess;
 }
