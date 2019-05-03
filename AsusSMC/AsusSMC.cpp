@@ -92,8 +92,7 @@ void AsusSMC::wmi_wdg2reg(struct guid_block *g, OSArray *array, OSArray *dataArr
 }
 
 OSDictionary *AsusSMC::readDataBlock(char *str) {
-    OSDictionary *dict;
-    dict = OSDictionary::withCapacity(1);
+    OSDictionary *dict = OSDictionary::withCapacity(1);
 
     char name[5];
     snprintf(name, 5, "WQ%s", str);
@@ -127,7 +126,7 @@ int AsusSMC::parse_wdg(OSDictionary *dict) {
         }
 
         data = OSDynamicCast(OSData, wdg);
-        if (data == NULL) {
+        if (!data) {
             SYSLOG("guid", "Cast error _WDG");
             continue;
         }
@@ -150,7 +149,7 @@ OSDictionary* AsusSMC::getDictByUUID(const char *guid) {
     OSDictionary *dict = NULL;
     OSString *uuid;
     OSArray *array = OSDynamicCast(OSArray, properties->getObject("WDG"));
-    if (NULL == array)
+    if (!array)
         return NULL;
     for (i = 0; i < array->getCount(); i++) {
         dict = OSDynamicCast(OSDictionary, array->getObject(i));
@@ -195,13 +194,13 @@ IOService *AsusSMC::probe(IOService *provider, SInt32 *score) {
             continue;
 
         dev = OSDynamicCast(IOACPIPlatformDevice, provider);
-        if (NULL == dev)
+        if (!dev)
             continue;
 
         dev->evaluateObject("_UID", &obj);
 
         name = OSDynamicCast(OSString, obj);
-        if (NULL == name)
+        if (!name)
             continue;
 
         if (name->isEqualTo("ATK")) {
@@ -315,13 +314,13 @@ IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
         atkDevice->evaluateObject("_WED", &wed, (OSObject**)&number, 1);
         number->release();
         number = OSDynamicCast(OSNumber, wed);
-        if (NULL == number) {
+        if (!number) {
             // try a package
             OSArray *array = OSDynamicCast(OSArray, wed);
-            if (NULL == array) {
+            if (!array) {
                 // try a buffer
                 OSData *data = OSDynamicCast(OSData, wed);
-                if ((NULL == data) || (data->getLength() == 0)) {
+                if ((!data) || (data->getLength() == 0)) {
                     DBGLOG("atk", "Fail to cast _WED returned objet %s", wed->getMetaClass()->getClassName());
                     return kIOReturnError;
                 }
@@ -329,7 +328,7 @@ IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
                 number = OSNumber::withNumber(bytes[0],32);
             } else {
                 number = OSDynamicCast(OSNumber, array->getObject(0));
-                if (NULL == number) {
+                if (!number) {
                     DBGLOG("atk", "Fail to cast _WED returned 1st objet in array %s", array->getObject(0)->getMetaClass()->getClassName());
                     return kIOReturnError;
                 }
