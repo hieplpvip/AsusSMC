@@ -208,7 +208,7 @@ IOService *AsusSMC::probe(IOService *provider, SInt32 *score) {
 
 bool AsusSMC::start(IOService *provider) {
     if (!provider || !super::start(provider)) {
-        SYSLOG("atk", "%s::Error loading kext");
+        SYSLOG("atk", "Error loading kext");
         return false;
     }
 
@@ -246,7 +246,7 @@ bool AsusSMC::start(IOService *provider) {
 
     workloop->addEventSource(command_gate);
 
-    setProperty("TouchpadEnabled", true);
+    setProperty("IsTouchpadEnabled", true);
 
     setProperty("Copyright", "Copyright © 2019 hieplpvip");
 
