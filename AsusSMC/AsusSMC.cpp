@@ -114,46 +114,39 @@ OSDictionary *AsusSMC::readDataBlock(char *str) {
 }
 
 int AsusSMC::parse_wdg(OSDictionary *dict) {
-    UInt32 i, total;
     OSObject *wdg;
-    OSData *data;
-    OSArray *array, *dataArray;
+    if (atkDevice->evaluateObject("_WDG", &wdg) != kIOReturnSuccess) {
+        SYSLOG("guid", "No object of method _WDG");
+        return 0;
+    }
 
-    do {
-        if (atkDevice->evaluateObject("_WDG", &wdg) != kIOReturnSuccess) {
-            SYSLOG("guid", "No object of method _WDG");
-            continue;
-        }
+    OSData *data = OSDynamicCast(OSData, wdg);
+    if (!data) {
+        SYSLOG("guid", "Cast error _WDG");
+        return 0;
+    }
+    UInt32 total = data->getLength() / sizeof(struct guid_block);
+    OSArray *array = OSArray::withCapacity(total);
+    OSArray *dataArray = OSArray::withCapacity(1);
 
-        data = OSDynamicCast(OSData, wdg);
-        if (!data) {
-            SYSLOG("guid", "Cast error _WDG");
-            continue;
-        }
-        total = data->getLength() / sizeof(struct guid_block);
-        array = OSArray::withCapacity(total);
-        dataArray = OSArray::withCapacity(1);
-
-        for (i = 0; i < total; i++)
-            wmi_wdg2reg((struct guid_block *) data->getBytesNoCopy(i * sizeof(struct guid_block), sizeof(struct guid_block)), array, dataArray);
-        setProperty("WDG", array);
-        setProperty("DataBlocks", dataArray);
-        data->release();
-    } while (false);
+    for (UInt32 i = 0; i < total; i++)
+        wmi_wdg2reg((struct guid_block *) data->getBytesNoCopy(i * sizeof(struct guid_block), sizeof(struct guid_block)), array, dataArray);
+    setProperty("WDG", array);
+    setProperty("DataBlocks", dataArray);
+    data->release();
 
     return 0;
 }
 
 OSDictionary* AsusSMC::getDictByUUID(const char *guid) {
-    UInt32 i;
-    OSDictionary *dict = NULL;
-    OSString *uuid;
     OSArray *array = OSDynamicCast(OSArray, properties->getObject("WDG"));
     if (!array)
         return NULL;
-    for (i = 0; i < array->getCount(); i++) {
+
+    OSDictionary *dict = NULL;
+    for (UInt32 i = 0; i < array->getCount(); i++) {
         dict = OSDynamicCast(OSDictionary, array->getObject(i));
-        uuid = OSDynamicCast(OSString, dict->getObject("UUID"));
+        OSString *uuid = OSDynamicCast(OSString, dict->getObject("UUID"));
         if (uuid->isEqualTo(guid)) {
             break;
         }
@@ -307,10 +300,9 @@ IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService *what
 
 IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
     if (type == kIOACPIMessageDeviceNotification) {
-        UInt32 event = *((UInt32 *) argument);
         OSObject *wed;
-
-        OSNumber *number = OSNumber::withNumber(event,32);
+        UInt32 event = *((UInt32 *) argument);
+        OSNumber *number = OSNumber::withNumber(event, 32);
         atkDevice->evaluateObject("_WED", &wed, (OSObject**)&number, 1);
         number->release();
         number = OSDynamicCast(OSNumber, wed);
@@ -401,13 +393,11 @@ void AsusSMC::handleMessage(int code) {
         case 0x6B: // Fn + F9, Touchpad On/Off
             touchpadEnabled = !touchpadEnabled;
             if (touchpadEnabled) {
-                setProperty("TouchpadEnabled", true);
-                removeProperty("TouchpadDisabled");
-                DBGLOG("atk", "Touchpad Enabled");
+                setProperty("IsTouchpadEnabled", true);
+                DBGLOG("atk", "Enabled Touchpad");
             } else {
-                removeProperty("TouchpadEnabled");
-                setProperty("TouchpadDisabled", true);
-                DBGLOG("atk", "Touchpad Disabled");
+                setProperty("IsTouchpadEnabled", false);
+                DBGLOG("atk", "Disabled Touchpad");
             }
 
             dispatchMessage(kKeyboardSetTouchStatus, &touchpadEnabled);
@@ -462,6 +452,7 @@ void AsusSMC::checkKBALS() {
         hasKeybrdBLight = false;
         DBGLOG("atk", "Keyboard backlight is not supported");
     }
+    setProperty("IsKeyboardBacklightSupported", hasKeybrdBLight);
 
     // Check ALS sensor
     if (atkDevice->validateObject("ALSC") == kIOReturnSuccess && atkDevice->validateObject("ALSS") == kIOReturnSuccess) {
@@ -473,17 +464,19 @@ void AsusSMC::checkKBALS() {
         hasALSensor = false;
         DBGLOG("atk", "No ALS sensors were found");
     }
+    setProperty("IsALSSupported", hasALSensor);
 }
 
 void AsusSMC::toggleALS(bool state) {
     OSObject *params[1];
-    UInt32 res;
     params[0] = OSNumber::withNumber(state, 8);
 
+    UInt32 res;
     if (atkDevice->evaluateInteger("ALSC", &res, params, 1) == kIOReturnSuccess)
         DBGLOG("atk", "ALS %s %d", state ? "enabled" : "disabled", res);
     else
         DBGLOG("atk", "Failed to call ALSC");
+    setProperty("IsALSEnabled", state);
 }
 
 int AsusSMC::checkBacklightEntry() {
