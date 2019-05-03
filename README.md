@@ -5,7 +5,7 @@
 A VirtualSMC plugin provides native support for ALS, keyboard backlight and Fn keys for Asus laptops on macOS.
 
 #### Features
-- Almost full Fn keys support including sleep, airplane mode, trackpad (only with VoodooI2C). Media keys is not supported now, sorry :(
+- Full Fn keys support (Note: Fn+F9 only works with VoodooI2C)
 - Native ALS support
 - Native keyboard backlight support (16 levels, smooth transition, auto adjusting, auto turning off)
 
