@@ -92,27 +92,25 @@ void AsusSMC::wmi_wdg2reg(struct guid_block *g, OSArray *array, OSArray *dataArr
 }
 
 OSDictionary *AsusSMC::readDataBlock(char *str) {
-    OSObject *wqxx;
-    OSData *data = NULL;
     OSDictionary *dict;
-    char name[5];
-
-    snprintf(name, 5, "WQ%s", str);
     dict = OSDictionary::withCapacity(1);
 
-    do {
-        if (atkDevice->evaluateObject(name, &wqxx) != kIOReturnSuccess) {
-            SYSLOG("guid", "No object of method %s", name);
-            continue;
-        }
+    char name[5];
+    snprintf(name, 5, "WQ%s", str);
 
-        data = OSDynamicCast(OSData, wqxx);
-        if (data == NULL) {
-            SYSLOG("guid", "Cast error %s", name);
-            continue;
-        }
-        dict->setObject(name, data);
-    } while (false);
+    OSObject *wqxx;
+    if (atkDevice->evaluateObject(name, &wqxx) != kIOReturnSuccess) {
+        SYSLOG("guid", "No object of method %s", name);
+        return dict;
+    }
+
+    OSData *data = OSDynamicCast(OSData, wqxx);
+    if (!data) {
+        SYSLOG("guid", "Cast error %s", name);
+        return dict;
+    }
+    dict->setObject(name, data);
+
     return dict;
 }
 
