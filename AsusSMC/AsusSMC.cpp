@@ -138,7 +138,7 @@ int AsusSMC::parse_wdg(OSDictionary *dict) {
     return 0;
 }
 
-OSDictionary* AsusSMC::getDictByUUID(const char *guid) {
+OSDictionary *AsusSMC::getDictByUUID(const char *guid) {
     OSArray *array = OSDynamicCast(OSArray, properties->getObject("WDG"));
     if (!array)
         return NULL;
@@ -649,10 +649,10 @@ bool AsusSMC::notificationHandler(void *refCon, IOService *newService, IONotifie
 }
 
 void AsusSMC::dispatchMessageGated(int *message, void *data) {
-    OSCollectionIterator* i = OSCollectionIterator::withCollection(_notificationServices);
+    OSCollectionIterator *i = OSCollectionIterator::withCollection(_notificationServices);
 
     if (i != NULL) {
-        while (IOService* service = OSDynamicCast(IOService, i->getNextObject()))
+        while (IOService *service = OSDynamicCast(IOService, i->getNextObject()))
             service->message(*message, this, data);
         i->release();
     }

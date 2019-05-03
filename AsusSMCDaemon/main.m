@@ -156,7 +156,7 @@ void toggleAirplaneMode() {
     CWInterface *currentInterface = [CWWiFiClient.sharedWiFiClient interface];
     NSError *err = nil;
 
-    if(airplaneModeEnabled) {
+    if (airplaneModeEnabled) {
         lastWifiState = currentInterface.powerOn;
         lastBluetoothState = IOBluetoothPreferenceGetControllerPowerState();
         [currentInterface setPower:NO error:&err];
@@ -167,7 +167,7 @@ void toggleAirplaneMode() {
     }
 }
 
-int main(int argc, const char * argv[]) {
+int main(int argc, const char *argv[]) {
     @autoreleasepool {
         printf("daemon started...\n");
 
@@ -215,9 +215,9 @@ int main(int argc, const char * argv[]) {
         // ->size is cumulation of header, struct, and max length of a proc path
         char kextMsg[KEV_MSG_HEADER_SIZE + sizeof(struct AsusSMCMessage)] = {0};
 
-        struct AsusSMCMessage* message = NULL;
+        struct AsusSMCMessage *message = NULL;
 
-        while(YES) {
+        while (YES) {
             //printf("listening...\n");
 
             bytesReceived = recv(systemSocket, kextMsg, sizeof(kextMsg), 0);
