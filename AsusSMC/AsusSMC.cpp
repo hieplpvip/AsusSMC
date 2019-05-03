@@ -38,7 +38,7 @@ int AsusSMC::wmi_data2Str(const char *in, char *out) {
     return 0;
 }
 
-OSString * AsusSMC::flagsToStr(UInt8 flags) {
+OSString *AsusSMC::flagsToStr(UInt8 flags) {
     char str[80];
     char *pos = str;
     if (flags != 0) {
@@ -84,18 +84,16 @@ void AsusSMC::wmi_wdg2reg(struct guid_block *g, OSArray *array, OSArray *dataArr
     }
     dict->setObject("instance_count", OSNumber::withNumber(g->instance_count, 8));
     dict->setObject("flags", OSNumber::withNumber(g->flags, 8));
-#if DEBUG
-    dict->setObject("flags Str", flagsToStr(g->flags));
-#endif
+    dict->setObject("flags_str", flagsToStr(g->flags));
     if (g->flags == 0)
         dataArray->setObject(readDataBlock(object_id_string));
 
     array->setObject(dict);
 }
 
-OSDictionary * AsusSMC::readDataBlock(char *str) {
-    OSObject    *wqxx;
-    OSData        *data = NULL;
+OSDictionary *AsusSMC::readDataBlock(char *str) {
+    OSObject *wqxx;
+    OSData *data = NULL;
     OSDictionary *dict;
     char name[5];
 
@@ -149,7 +147,7 @@ int AsusSMC::parse_wdg(OSDictionary *dict) {
     return 0;
 }
 
-OSDictionary* AsusSMC::getDictByUUID(const char * guid) {
+OSDictionary* AsusSMC::getDictByUUID(const char *guid) {
     UInt32 i;
     OSDictionary *dict = NULL;
     OSString *uuid;
@@ -180,16 +178,19 @@ bool AsusSMC::init(OSDictionary *dict) {
     kev.setVendorID("com.hieplpvip");
     kev.setEventCode(AsusSMCEventCode);
 
+    atomic_init(&currentLux, 0);
+
     bool result = super::init(dict);
     properties = dict;
-    DBGLOG("atk", "Init AsusSMC");
+
+    DBGLOG("atk", "AsusSMC Inited");
     return result;
 }
 
-IOService * AsusSMC::probe(IOService *provider, SInt32 *score) {
-    IOService * ret = NULL;
-    OSObject * obj;
-    OSString * name;
+IOService *AsusSMC::probe(IOService *provider, SInt32 *score) {
+    IOService *ret = NULL;
+    OSObject *obj;
+    OSString *name;
     IOACPIPlatformDevice *dev;
     do {
         if (!super::probe(provider, score))
@@ -257,7 +258,7 @@ bool AsusSMC::start(IOService *provider) {
 
     setProperty("TouchpadEnabled", true);
 
-    setProperty("Copyright", "Copyright © 2018 hieplpvip");
+    setProperty("Copyright", "Copyright © 2019 hieplpvip");
 
     return true;
 }
@@ -307,26 +308,26 @@ IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService *what
 #pragma mark AsusSMC Methods
 #pragma mark -
 
-IOReturn AsusSMC::message(UInt32 type, IOService * provider, void * argument) {
+IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
     if (type == kIOACPIMessageDeviceNotification) {
         UInt32 event = *((UInt32 *) argument);
-        OSObject * wed;
+        OSObject *wed;
 
-        OSNumber * number = OSNumber::withNumber(event,32);
+        OSNumber *number = OSNumber::withNumber(event,32);
         atkDevice->evaluateObject("_WED", &wed, (OSObject**)&number, 1);
         number->release();
         number = OSDynamicCast(OSNumber, wed);
         if (NULL == number) {
             // try a package
-            OSArray * array = OSDynamicCast(OSArray, wed);
+            OSArray *array = OSDynamicCast(OSArray, wed);
             if (NULL == array) {
                 // try a buffer
-                OSData * data = OSDynamicCast(OSData, wed);
+                OSData *data = OSDynamicCast(OSData, wed);
                 if ((NULL == data) || (data->getLength() == 0)) {
                     DBGLOG("atk", "Fail to cast _WED returned objet %s", wed->getMetaClass()->getClassName());
                     return kIOReturnError;
                 }
-                const char * bytes = (const char *) data->getBytesNoCopy();
+                const char *bytes = (const char *) data->getBytesNoCopy();
                 number = OSNumber::withNumber(bytes[0],32);
             } else {
                 number = OSDynamicCast(OSNumber, array->getObject(0));
@@ -346,8 +347,6 @@ IOReturn AsusSMC::message(UInt32 type, IOService * provider, void * argument) {
 }
 
 void AsusSMC::handleMessage(int code) {
-    int loopCount = 0;
-
     // Processing the code
     switch (code) {
         case 0x57: // AC disconnected
@@ -480,7 +479,7 @@ void AsusSMC::checkKBALS() {
 }
 
 void AsusSMC::toggleALS(bool state) {
-    OSObject * params[1];
+    OSObject *params[1];
     UInt32 res;
     params[0] = OSNumber::withNumber(state, 8);
 
@@ -553,9 +552,9 @@ void AsusSMC::readPanelBrightnessValue() {
     IORegistryEntry *displayDeviceEntry = IORegistryEntry::fromPath(backlightEntry);
 
     if (displayDeviceEntry != NULL) {
-        if (OSDictionary* ioDisplayParaDict = OSDynamicCast(OSDictionary, displayDeviceEntry->getProperty("IODisplayParameters"))) {
-            if (OSDictionary* brightnessDict = OSDynamicCast(OSDictionary, ioDisplayParaDict->getObject("brightness"))) {
-                if (OSNumber* brightnessValue = OSDynamicCast(OSNumber, brightnessDict->getObject("value"))) {
+        if (OSDictionary *ioDisplayParaDict = OSDynamicCast(OSDictionary, displayDeviceEntry->getProperty("IODisplayParameters"))) {
+            if (OSDictionary *brightnessDict = OSDynamicCast(OSDictionary, ioDisplayParaDict->getObject("brightness"))) {
+                if (OSNumber *brightnessValue = OSDynamicCast(OSNumber, brightnessDict->getObject("value"))) {
                     panelBrightnessLevel = brightnessValue->unsigned32BitValue() / 64;
                     DBGLOG("atk", "Panel brightness level from AppleBacklightDisplay: %d", brightnessValue->unsigned32BitValue());
                     DBGLOG("atk", "Read panel brightness level: %d", panelBrightnessLevel);
@@ -582,7 +581,7 @@ void AsusSMC::initVirtualKeyboard() {
         _virtualKBrd->setCountryCode(0);
 }
 
-IOReturn AsusSMC::postKeyboardInputReport(const void* report, uint32_t reportSize) {
+IOReturn AsusSMC::postKeyboardInputReport(const void *report, uint32_t reportSize) {
     IOReturn result = kIOReturnError;
 
     if (!report || reportSize == 0) {
@@ -626,7 +625,7 @@ void AsusSMC::dispatchTCReport(int code, int bLoopCount)
 #pragma mark -
 
 void AsusSMC::registerNotifications() {
-    OSDictionary * propertyMatch = propertyMatching(OSSymbol::withCString(kDeliverNotifications), OSBoolean::withBoolean(true));
+    OSDictionary *propertyMatch = propertyMatching(OSSymbol::withCString(kDeliverNotifications), OSBoolean::withBoolean(true));
 
     IOServiceMatchingNotificationHandler notificationHandler = OSMemberFunctionCast(IOServiceMatchingNotificationHandler, this, &AsusSMC::notificationHandler);
 
@@ -645,7 +644,7 @@ void AsusSMC::registerNotifications() {
     propertyMatch->release();
 }
 
-void AsusSMC::notificationHandlerGated(IOService * newService, IONotifier * notifier) {
+void AsusSMC::notificationHandlerGated(IOService *newService, IONotifier *notifier) {
     if (notifier == _publishNotify) {
         SYSLOG("notify", "Notification consumer published: %s", newService->getName());
         _notificationServices->setObject(newService);
@@ -657,12 +656,12 @@ void AsusSMC::notificationHandlerGated(IOService * newService, IONotifier * noti
     }
 }
 
-bool AsusSMC::notificationHandler(void * refCon, IOService * newService, IONotifier * notifier) {
+bool AsusSMC::notificationHandler(void *refCon, IOService *newService, IONotifier *notifier) {
     command_gate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AsusSMC::notificationHandlerGated), newService, notifier);
     return true;
 }
 
-void AsusSMC::dispatchMessageGated(int* message, void* data) {
+void AsusSMC::dispatchMessageGated(int *message, void *data) {
     OSCollectionIterator* i = OSCollectionIterator::withCollection(_notificationServices);
 
     if (i != NULL) {
@@ -672,7 +671,7 @@ void AsusSMC::dispatchMessageGated(int* message, void* data) {
     }
 }
 
-void AsusSMC::dispatchMessage(int message, void* data) {
+void AsusSMC::dispatchMessage(int message, void *data) {
     command_gate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AsusSMC::dispatchMessageGated), &message, data);
 }
 
