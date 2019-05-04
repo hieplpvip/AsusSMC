@@ -230,8 +230,8 @@ protected:
      */
     IOReturn postKeyboardInputReport(const void *report, uint32_t reportSize);
 
-    void dispatchKBReport(int code, int bLoopCount = 1);
-    void dispatchTCReport(int code, int bLoopCount = 1);
+    void dispatchKBReport(int code, int loop = 1);
+    void dispatchTCReport(int code, int loop = 1);
 
     /**
      *  Send notifications to 3rd-party drivers (eg. VoodooI2C)

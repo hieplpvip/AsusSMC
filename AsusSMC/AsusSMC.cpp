@@ -232,7 +232,7 @@ bool AsusSMC::start(IOService *provider) {
 
     workloop = getWorkLoop();
     if (!workloop) {
-        DBGLOG("atk", "Failed to get workloop!");
+        DBGLOG("atk", "Failed to get workloop");
         return false;
     }
     workloop->retain();
@@ -251,7 +251,7 @@ bool AsusSMC::start(IOService *provider) {
 }
 
 void AsusSMC::stop(IOService *provider) {
-    DBGLOG("atk", "Stop");
+    DBGLOG("atk", "Stop is called");
 
     if (poller)
         poller->cancelTimeout();
@@ -436,7 +436,7 @@ void AsusSMC::handleMessage(int code) {
             break;
     }
 
-    DBGLOG("atk", "Received Key %d(0x%x)", code, code);
+    DBGLOG("atk", "Received key %d(0x%x)", code, code);
 }
 
 void AsusSMC::checkKBALS() {
@@ -456,10 +456,10 @@ void AsusSMC::checkKBALS() {
         SYSLOG("atk", "Found ALS sensor");
         hasALSensor = isALSenabled = true;
         toggleALS(isALSenabled);
-        SYSLOG("atk", "ALS turned on at boot");
+        SYSLOG("atk", "ALS has been turned on at boot");
     } else {
         hasALSensor = false;
-        DBGLOG("atk", "No ALS sensors were found");
+        DBGLOG("atk", "ALS sensor not found");
     }
     setProperty("IsALSSupported", hasALSensor);
 }
@@ -470,7 +470,7 @@ void AsusSMC::toggleALS(bool state) {
 
     UInt32 res;
     if (atkDevice->evaluateInteger("ALSC", &res, params, 1) == kIOReturnSuccess)
-        DBGLOG("atk", "ALS %s %d", state ? "enabled" : "disabled", res);
+        DBGLOG("atk", "ALS has been %s (ALSC ret %d)", state ? "enabled" : "disabled", res);
     else
         DBGLOG("atk", "Failed to call ALSC");
     setProperty("IsALSEnabled", state);
@@ -543,14 +543,13 @@ void AsusSMC::readPanelBrightnessValue() {
             if (OSDictionary *brightnessDict = OSDynamicCast(OSDictionary, ioDisplayParaDict->getObject("brightness"))) {
                 if (OSNumber *brightnessValue = OSDynamicCast(OSNumber, brightnessDict->getObject("value"))) {
                     panelBrightnessLevel = brightnessValue->unsigned32BitValue() / 64;
-                    DBGLOG("atk", "Panel brightness level from AppleBacklightDisplay: %d", brightnessValue->unsigned32BitValue());
-                    DBGLOG("atk", "Read panel brightness level: %d", panelBrightnessLevel);
+                    DBGLOG("atk", "Panel brightness level: %d", panelBrightnessLevel);
                 } else
-                    DBGLOG("atk", "Can't not read brightness value");
+                    DBGLOG("atk", "Failed to read brightness value");
             } else
-                DBGLOG("atk", "Can't not find dictionary brightness");
+                DBGLOG("atk", "Failed to find dictionary brightness");
         } else
-            DBGLOG("atk", "Can't not find dictionary IODisplayParameters");
+            DBGLOG("atk", "Failed to find dictionary IODisplayParameters");
     }
 }
 
@@ -563,7 +562,7 @@ void AsusSMC::initVirtualKeyboard() {
 
     if (!_virtualKBrd || !_virtualKBrd->init() || !_virtualKBrd->attach(this) || !_virtualKBrd->start(this)) {
         _virtualKBrd->release();
-        SYSLOG("virtkbrd", "Error init VirtualHIDKeyboard");
+        SYSLOG("virtkbrd", "Failed to init VirtualHIDKeyboard");
     } else
         _virtualKBrd->setCountryCode(0);
 }
@@ -585,10 +584,10 @@ IOReturn AsusSMC::postKeyboardInputReport(const void *report, uint32_t reportSiz
     return result;
 }
 
-void AsusSMC::dispatchKBReport(int code, int bLoopCount)
+void AsusSMC::dispatchKBReport(int code, int loop)
 {
-    DBGLOG("atk", "Loop Count %d, dispatch Key %d(0x%x)", bLoopCount, code, code);
-    while (bLoopCount--) {
+    DBGLOG("atk", "Dispatched key %d(0x%x), loop %d time(s)", code, code, loop);
+    while (loop--) {
         kbreport.keys.insert(code);
         postKeyboardInputReport(&kbreport, sizeof(kbreport));
         kbreport.keys.erase(code);
@@ -596,10 +595,10 @@ void AsusSMC::dispatchKBReport(int code, int bLoopCount)
     }
 }
 
-void AsusSMC::dispatchTCReport(int code, int bLoopCount)
+void AsusSMC::dispatchTCReport(int code, int loop)
 {
-    DBGLOG("atk", "Loop Count %d, dispatch Key %d(0x%x)", bLoopCount, code, code);
-    while (bLoopCount--) {
+    DBGLOG("atk", "Dispatched key %d(0x%x), loop %d time(s)", code, code, loop);
+    while (loop--) {
         tcreport.keys.insert(code);
         postKeyboardInputReport(&tcreport, sizeof(tcreport));
         tcreport.keys.erase(code);
@@ -713,7 +712,7 @@ bool AsusSMC::vsmcNotificationHandler(void *sensors, void *refCon, IOService *vs
         auto self = static_cast<AsusSMC *>(sensors);
         auto ret = vsmc->callPlatformFunction(VirtualSMCAPI::SubmitPlugin, true, sensors, &self->vsmcPlugin, nullptr, nullptr);
         if (ret == kIOReturnSuccess) {
-            DBGLOG("alsd", "submitted plugin");
+            DBGLOG("alsd", "Submitted plugin");
 
             self->workloop = self->getWorkLoop();
             self->poller = IOTimerEventSource::timerEventSource(self, [](OSObject *object, IOTimerEventSource *sender) {
@@ -722,28 +721,28 @@ bool AsusSMC::vsmcNotificationHandler(void *sensors, void *refCon, IOService *vs
             });
 
             if (!self->poller || !self->workloop) {
-                SYSLOG("alsd", "failed to create poller or workloop");
+                SYSLOG("alsd", "Failed to create poller or workloop");
                 return false;
             }
 
             if (self->workloop->addEventSource(self->poller) != kIOReturnSuccess) {
-                SYSLOG("alsd", "failed to add timer event source to workloop");
+                SYSLOG("alsd", "Failed to add timer event source to workloop");
                 return false;
             }
 
             if (self->poller->setTimeoutMS(SensorUpdateTimeoutMS) != kIOReturnSuccess) {
-                SYSLOG("alsd", "failed to set timeout");
+                SYSLOG("alsd", "Failed to set timeout");
                 return false;
             }
 
             return true;
         } else if (ret != kIOReturnUnsupported) {
-            SYSLOG("alsd", "plugin submission failure %X", ret);
+            SYSLOG("alsd", "Plugin submission failure %X", ret);
         } else {
-            DBGLOG("alsd", "plugin submission to non vsmc");
+            DBGLOG("alsd", "Plugin submission to non vsmc");
         }
     } else {
-        SYSLOG("alsd", "got null vsmc notification");
+        SYSLOG("alsd", "Got null vsmc notification");
     }
 
     return false;
