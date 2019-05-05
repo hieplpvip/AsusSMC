@@ -1,6 +1,14 @@
 # AsusSMC
 
-[![release](https://img.shields.io/github/release/hieplpvip/AsusSMC.svg)](https://github.com/hieplpvip/AsusSMC/releases) [![Build Status](https://travis-ci.org/hieplpvip/AsusSMC.svg?branch=master)](https://travis-ci.org/hieplpvip/AsusSMC) [![Scan Status](https://scan.coverity.com/projects/18304/badge.svg?flat=1)](https://scan.coverity.com/projects/18304)
+[![Github release](https://img.shields.io/github/release/hieplpvip/AsusSMC.svg?color=blue)](https://github.com/hieplpvip/AsusSMC/releases/latest)
+[![Github downloads](https://img.shields.io/github/downloads/hieplpvip/AsusSMC/total.svg?color=blue)](https://github.com/hieplpvip/AsusSMC/releases)
+![GitHub repo size](https://img.shields.io/github/repo-size/hieplpvip/AsusSMC.svg?color=blue)
+[![Project license](https://img.shields.io/github/license/hieplpvip/AsusSMC.svg?color=blue)](https://github.com/hieplpvip/AsusSMC/blob/master/LICENSE.md)
+[![GitHub issues](https://img.shields.io/github/issues/hieplpvip/AsusSMC.svg)](https://github.com/hieplpvip/AsusSMC/issues)
+[![Build Status](https://travis-ci.org/hieplpvip/AsusSMC.svg?branch=master)](https://travis-ci.org/hieplpvip/AsusSMC)
+[![Scan Status](https://scan.coverity.com/projects/18304/badge.svg)](https://scan.coverity.com/projects/18304)
+[![Gitter chat](https://img.shields.io/gitter/room/nwjs/nw.js.svg?colorB=ed1965)](https://gitter.im/hieplpvip/AsusSMC)
+[![Donate with PayPal](https://img.shields.io/badge/paypal-donate-red.svg)](https://paypal.me/lebhiep)
 
 A VirtualSMC plugin provides native support for ALS, keyboard backlight and Fn keys for Asus laptops on macOS.
 
@@ -26,3 +34,6 @@ A VirtualSMC plugin provides native support for ALS, keyboard backlight and Fn k
 - [EMlyDinEsHMG](https://osxlatitude.com/profile/7370-emlydinesh/) for [AsusNBFnKeys source code](https://github.com/EMlyDinEsHMG/AsusNBFnKeys)
 - [Objective-See](https://objective-see.com) for [kernel-userspace communication](https://objective-see.com/blog/blog_0x0B.html)
 - [Karabiner-Elements](https://github.com/tekezo/Karabiner-Elements) for VirtualHIDKeyboard
+
+## [Donate me](https://paypal.me/lebhiep)
+Any donation is highly appreciated!
