@@ -6,6 +6,7 @@
 [kbl] Haswell/Broadwell/Skylake	patches/kbl_broadwell.txt
 [kbl] Kaby Lake/Kaby Lake-R	patches/kbl_kabylake.txt
 [kbl] WhiskeyLake	patches/kbl_whiskeylake.txt
+[kbl] CoffeeLake	patches/kbl_coffeelake.txt
 [fn] --> FN keys	patches/NullPatch.txt
 [fn] ALS toggle	patches/als_toggle.txt
 [fn] Media - arrow keys	patches/media_arrow.txt
