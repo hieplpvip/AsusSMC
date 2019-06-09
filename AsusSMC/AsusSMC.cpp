@@ -195,7 +195,7 @@ IOService *AsusSMC::probe(IOService *provider, SInt32 *score) {
         return ret;
 
     if (name->isEqualTo("ATK")) {
-        *score +=20;
+        *score += 20;
         ret = this;
     }
     name->release();
