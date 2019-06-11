@@ -178,6 +178,13 @@ protected:
     bool hasKeybrdBLight {false};
 
     /**
+     *  Direct ACPI messaging support
+     *  Originally, receiving ACPI messages takes several unnecessary steps (thanks, ASUS!)
+     *  By patching method IANE in DSDT, we can avoid those steps
+     */
+    bool directACPImessaging {false};
+
+    /**
      *  ALS availability
      */
     bool hasALSensor {false};
@@ -200,7 +207,7 @@ protected:
     /**
      *  Check ALS and keyboard backlight availability
      */
-    void checkKBALS();
+    void checkATK();
 
     /**
      *  Enable/Disable ALS sensor

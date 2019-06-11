@@ -210,13 +210,16 @@ bool AsusSMC::start(IOService *provider) {
     }
 
     atkDevice = (IOACPIPlatformDevice *) provider;
-    atkDevice->evaluateObject("INIT", NULL, NULL, NULL);
+
+    OSNumber *arg = OSNumber::withNumber(1, 8);
+    atkDevice->evaluateObject("INIT", NULL, (OSObject**)&arg, 1);
+    arg->release();
 
     SYSLOG("atk", "Found WMI Device %s", atkDevice->getName());
 
     parse_wdg(properties);
 
-    checkKBALS();
+    checkATK();
 
     initVirtualKeyboard();
 
@@ -297,37 +300,20 @@ IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService *what
 
 IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
     if (type == kIOACPIMessageDeviceNotification) {
-        OSObject *wed;
-        UInt32 event = *((UInt32 *) argument);
-        OSNumber *number = OSNumber::withNumber(event, 32);
-        atkDevice->evaluateObject("_WED", &wed, (OSObject**)&number, 1);
-        number->release();
-        number = OSDynamicCast(OSNumber, wed);
-        if (!number) {
-            // try a package
-            OSArray *array = OSDynamicCast(OSArray, wed);
-            if (!array) {
-                // try a buffer
-                OSData *data = OSDynamicCast(OSData, wed);
-                if ((!data) || (data->getLength() == 0)) {
-                    DBGLOG("atk", "Fail to cast _WED returned objet %s", wed->getMetaClass()->getClassName());
-                    return kIOReturnError;
-                }
-                const char *bytes = (const char *) data->getBytesNoCopy();
-                number = OSNumber::withNumber(bytes[0],32);
-            } else {
-                number = OSDynamicCast(OSNumber, array->getObject(0));
-                if (!number) {
-                    DBGLOG("atk", "Fail to cast _WED returned 1st objet in array %s", array->getObject(0)->getMetaClass()->getClassName());
-                    return kIOReturnError;
-                }
-            }
-        }
+        if (directACPImessaging) {
+            handleMessage(*((UInt32 *) argument));
+        } else {
+            UInt32 event = *((UInt32 *) argument);
+            OSNumber *arg = OSNumber::withNumber(event, sizeof(event) * 8);
+            UInt32 res;
+            atkDevice->evaluateInteger("_WED", &res, (OSObject**)&arg, 1);
+            arg->release();
 
-        handleMessage(number->unsigned32BitValue());
-    }
-    else
+            handleMessage(res);
+        }
+    } else {
         DBGLOG("atk", "Unexpected message: %u Type %x Provider %s", *((UInt32 *) argument), uint(type), provider->getName());
+    }
 
     return kIOReturnSuccess;
 }
@@ -439,7 +425,13 @@ void AsusSMC::handleMessage(int code) {
     DBGLOG("atk", "Received key %d(0x%x)", code, code);
 }
 
-void AsusSMC::checkKBALS() {
+void AsusSMC::checkATK() {
+    // Check direct ACPI messaging support
+    if (atkDevice->validateObject("DMES") == kIOReturnSuccess) {
+        DBGLOG("atk", "Direct ACPI message is supported");
+        directACPImessaging = true;
+    }
+
     // Check keyboard backlight support
     if (atkDevice->validateObject("SKBV") == kIOReturnSuccess) {
         SYSLOG("atk", "Keyboard backlight is supported");
@@ -465,15 +457,14 @@ void AsusSMC::checkKBALS() {
 }
 
 void AsusSMC::toggleALS(bool state) {
-    OSObject *params[1];
-    params[0] = OSNumber::withNumber(state, 8);
-
     UInt32 res;
-    if (atkDevice->evaluateInteger("ALSC", &res, params, 1) == kIOReturnSuccess)
+    OSNumber *arg = OSNumber::withNumber(state, sizeof(state) * 8);
+    if (atkDevice->evaluateInteger("ALSC", &res, (OSObject**)&arg, 1) == kIOReturnSuccess)
         DBGLOG("atk", "ALS has been %s (ALSC ret %d)", state ? "enabled" : "disabled", res);
     else
         DBGLOG("atk", "Failed to call ALSC");
     setProperty("IsALSEnabled", state);
+    arg->release();
 }
 
 int AsusSMC::checkBacklightEntry() {
@@ -561,7 +552,7 @@ void AsusSMC::initVirtualKeyboard() {
     _virtualKBrd = new VirtualHIDKeyboard;
 
     if (!_virtualKBrd || !_virtualKBrd->init() || !_virtualKBrd->attach(this) || !_virtualKBrd->start(this)) {
-        _virtualKBrd->release();
+        OSSafeReleaseNULL(_virtualKBrd);
         SYSLOG("virtkbrd", "Failed to init VirtualHIDKeyboard");
     } else
         _virtualKBrd->setCountryCode(0);
@@ -662,7 +653,7 @@ void AsusSMC::dispatchMessage(int message, void *data) {
 }
 
 #pragma mark -
-#pragma mark VirtualSMC plugin
+#pragma mark VirtualSMC plugin - Ported from SMCLightSensor
 #pragma mark -
 
 void AsusSMC::registerVSMC() {

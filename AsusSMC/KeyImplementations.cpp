@@ -35,11 +35,10 @@ SMC_RESULT SMCKBrdBLightValue::update(const SMC_DATA *src)  {
         uint16_t tval = (value->val1 << 4) | (value->val2 >> 4);
         DBGLOG("kbrdblight", "LKSB update %d", tval);
         tval = tval / 16;
-        OSObject *params[1];
-        OSObject *ret = NULL;
-        params[0] = OSNumber::withNumber(tval, sizeof(tval) * 8);
 
-        atkDevice->evaluateObject("SKBV", &ret, params, 1);
+        OSNumber *arg = OSNumber::withNumber(tval, sizeof(tval) * 8);
+        atkDevice->evaluateObject("SKBV", NULL, (OSObject**)&arg, 1);
+        arg->release();
     }
     delete value;
 
