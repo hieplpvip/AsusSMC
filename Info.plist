@@ -42,16 +42,55 @@
 			<key>IOProviderClass</key>
 			<string>IOACPIPlatformDevice</string>
 		</dict>
-		<key>AsusHID</key>
+		<key>0b05_1837</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>IOClass</key>
 			<string>AsusHID</string>
 			<key>IOProviderClass</key>
-			<string>IOUSBHostHIDDevice</string>
+			<string>IOHIDDevice</string>
+			<key>ProductID</key>
+			<integer>6199</integer>
+			<key>VendorID</key>
+			<integer>2821</integer>
+		</dict>
+		<key>0b05_1854</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOClass</key>
+			<string>AsusHID</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDDevice</string>
+			<key>ProductID</key>
+			<integer>6228</integer>
+			<key>VendorID</key>
+			<integer>2821</integer>
+		</dict>
+		<key>0b05_1866</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOClass</key>
+			<string>AsusHID</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDDevice</string>
 			<key>ProductID</key>
 			<integer>6246</integer>
+			<key>VendorID</key>
+			<integer>2821</integer>
+		</dict>
+		<key>0b05_1869</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOClass</key>
+			<string>AsusHID</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDDevice</string>
+			<key>ProductID</key>
+			<integer>6249</integer>
 			<key>VendorID</key>
 			<integer>2821</integer>
 		</dict>
