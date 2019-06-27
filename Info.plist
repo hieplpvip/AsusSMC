@@ -23,7 +23,7 @@
 		<key>AsusSMC</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
-			<string>com.hieplpvip.${PRODUCT_NAME:rfc1034identifier}</string>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>IOClass</key>
 			<string>AsusSMC</string>
 			<key>IONameMatch</key>
@@ -41,6 +41,19 @@
 			<integer>9999</integer>
 			<key>IOProviderClass</key>
 			<string>IOACPIPlatformDevice</string>
+		</dict>
+		<key>AsusHID</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOClass</key>
+			<string>AsusHID</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBHostHIDDevice</string>
+			<key>ProductID</key>
+			<integer>6246</integer>
+			<key>VendorID</key>
+			<integer>2821</integer>
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>

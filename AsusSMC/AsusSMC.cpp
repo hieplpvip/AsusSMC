@@ -164,6 +164,7 @@ OSDefineMetaClassAndStructors(AsusSMC, IOService)
 
 bool AsusSMC::init(OSDictionary *dict) {
     _notificationServices = OSSet::withCapacity(1);
+    _hidDrivers = OSSet::withCapacity(1);
 
     kev.setVendorID("com.hieplpvip");
     kev.setEventCode(AsusSMCEventCode);
@@ -204,6 +205,8 @@ IOService *AsusSMC::probe(IOService *provider, SInt32 *score) {
 }
 
 bool AsusSMC::start(IOService *provider) {
+    DBGLOG("atk", "start is called");
+
     if (!provider || !super::start(provider)) {
         SYSLOG("atk", "Error loading kext");
         return false;
@@ -246,15 +249,17 @@ bool AsusSMC::start(IOService *provider) {
 
     workloop->addEventSource(command_gate);
 
+    setProperty("AsusHID Supported", true);
+
     setProperty("IsTouchpadEnabled", true);
 
-    setProperty("Copyright", "Copyright © 2019 hieplpvip");
+    setProperty("Copyright", "Copyright © 2018 hieplpvip");
 
     return true;
 }
 
 void AsusSMC::stop(IOService *provider) {
-    DBGLOG("atk", "Stop is called");
+    DBGLOG("atk", "stop is called");
 
     if (poller)
         poller->cancelTimeout();
@@ -272,6 +277,9 @@ void AsusSMC::stop(IOService *provider) {
     OSSafeReleaseNULL(_publishNotify);
     OSSafeReleaseNULL(_terminateNotify);
     OSSafeReleaseNULL(_notificationServices);
+
+    _hidDrivers->flushCollection();
+    OSSafeReleaseNULL(_hidDrivers);
 
     OSSafeReleaseNULL(_virtualKBrd);
     PMstop();
@@ -311,6 +319,12 @@ IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
 
             handleMessage(res);
         }
+    } else if (type == kAddAsusHID) {
+        DBGLOG("atk", "Connected with HID driver");
+        _hidDrivers->setObject(provider);
+    } else if (type == kDelAsusHID) {
+        DBGLOG("atk", "Disconnected with HID driver");
+        _hidDrivers->removeObject(provider);
     } else {
         DBGLOG("atk", "Unexpected message: %u Type %x Provider %s", *((UInt32 *) argument), uint(type), provider->getName());
     }
@@ -602,7 +616,7 @@ void AsusSMC::dispatchTCReport(int code, int loop)
 #pragma mark -
 
 void AsusSMC::registerNotifications() {
-    OSDictionary *propertyMatch = propertyMatching(OSSymbol::withCString(kDeliverNotifications), OSBoolean::withBoolean(true));
+    OSDictionary *propertyMatch = propertyMatching(OSSymbol::withCString(kDeliverNotifications), kOSBooleanTrue);
 
     IOServiceMatchingNotificationHandler notificationHandler = OSMemberFunctionCast(IOServiceMatchingNotificationHandler, this, &AsusSMC::notificationHandler);
 

@@ -8,18 +8,8 @@
 #ifndef _AsusSMC_hpp
 #define _AsusSMC_hpp
 
-#include <IOKit/hidsystem/ev_keymap.h>
-#include <IOKit/pwr_mgt/IOPMPowerSource.h>
-#include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOCommandGate.h>
-#include <IOKit/IOService.h>
-#include <IOKit/IONVRAM.h>
-#include <IOKit/IOLib.h>
-#include <sys/errno.h>
-#include <mach/kern_return.h>
-#include <sys/kern_control.h>
-#include <libkern/OSTypes.h>
 
 #include "karabiner_virtual_hid_device.hpp"
 #include "VirtualHIDKeyboard.hpp"
@@ -72,6 +62,11 @@ enum {
 };
 
 enum {
+    kAddAsusHID = iokit_vendor_specific_msg(8102),
+    kDelAsusHID = iokit_vendor_specific_msg(7501),
+};
+
+enum {
     kevKeyboardBacklight = 1,
     kevAirplaneMode = 2,
     kevSleep = 3,
@@ -86,7 +81,7 @@ enum ReportType {
     apple_vendor_keyboard_input = 4,
 };
 
-class EXPORT AsusSMC : public IOService {
+class AsusSMC : public IOService {
     OSDeclareDefaultStructors(AsusSMC)
 
     /**
@@ -251,6 +246,11 @@ protected:
     bool notificationHandler(void *refCon, IOService *newService, IONotifier *notifier);
     void dispatchMessageGated(int *message, void *data);
     void dispatchMessage(int message, void* data);
+
+    /**
+     *  HID drivers
+     */
+    OSSet *_hidDrivers {nullptr};
 
     /**
      *  Register ourself as a VirtualSMC plugin

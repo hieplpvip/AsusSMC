@@ -8,7 +8,6 @@
 #ifndef KeyImplementations_hpp
 #define KeyImplementations_hpp
 
-#include <libkern/libkern.h>
 #include <VirtualSMCSDK/kern_vsmcapi.hpp>
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 

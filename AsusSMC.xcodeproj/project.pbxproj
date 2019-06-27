@@ -20,6 +20,8 @@
 		4C4FE6BD2156A4FB0074AD08 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6BB2156A4FB0074AD08 /* main.m */; };
 		4C4FE6C02156A5820074AD08 /* KeyImplementations.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6BE2156A5820074AD08 /* KeyImplementations.cpp */; };
 		4C4FE6C12156A5820074AD08 /* KeyImplementations.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */; };
+		4CAE3C5322C43E5600FCA35D /* AsusHID.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAE3C5122C43E5600FCA35D /* AsusHID.cpp */; };
+		4CAE3C5422C43E5600FCA35D /* AsusHID.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4CAE3C5222C43E5600FCA35D /* AsusHID.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -122,6 +124,8 @@
 		4C4FE6BE2156A5820074AD08 /* KeyImplementations.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = KeyImplementations.cpp; sourceTree = "<group>"; };
 		4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = KeyImplementations.hpp; sourceTree = "<group>"; };
 		4C4FE6C22156AA810074AD08 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		4CAE3C5122C43E5600FCA35D /* AsusHID.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AsusHID.cpp; sourceTree = "<group>"; };
+		4CAE3C5222C43E5600FCA35D /* AsusHID.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AsusHID.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -148,15 +152,17 @@
 		4C4FE6172156A1690074AD08 = {
 			isa = PBXGroup;
 			children = (
-				4C4FE6A22156A4270074AD08 /* VirtualHIDKeyboard */,
-				4C4FE69D2156A3970074AD08 /* KernEventServer */,
 				4C4FE6232156A1690074AD08 /* AsusSMC */,
 				4C4FE6AE2156A4730074AD08 /* AsusSMCDaemon */,
+				4CAE3C5022C43D2B00FCA35D /* AsusHID */,
+				4C4FE69D2156A3970074AD08 /* KernEventServer */,
+				4C4FE6A22156A4270074AD08 /* VirtualHIDKeyboard */,
 				4C4FE62E2156A2980074AD08 /* SDK */,
 				4C4FE6222156A1690074AD08 /* Products */,
 				4C4FE6B42156A4A20074AD08 /* Frameworks */,
 				4C4FE6C22156AA810074AD08 /* README.md */,
 				4C27D2BF218B647F0089409B /* LICENSE.md */,
+				4C4FE6282156A1690074AD08 /* Info.plist */,
 				4C32363D215901DF00700256 /* package.tool */,
 			);
 			sourceTree = "<group>";
@@ -173,9 +179,8 @@
 		4C4FE6232156A1690074AD08 /* AsusSMC */ = {
 			isa = PBXGroup;
 			children = (
-				4C4FE6242156A1690074AD08 /* AsusSMC.hpp */,
 				4C4FE6262156A1690074AD08 /* AsusSMC.cpp */,
-				4C4FE6282156A1690074AD08 /* Info.plist */,
+				4C4FE6242156A1690074AD08 /* AsusSMC.hpp */,
 				4C4FE6BE2156A5820074AD08 /* KeyImplementations.cpp */,
 				4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */,
 			);
@@ -336,6 +341,15 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		4CAE3C5022C43D2B00FCA35D /* AsusHID */ = {
+			isa = PBXGroup;
+			children = (
+				4CAE3C5122C43E5600FCA35D /* AsusHID.cpp */,
+				4CAE3C5222C43E5600FCA35D /* AsusHID.hpp */,
+			);
+			path = AsusHID;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -343,6 +357,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4CAE3C5422C43E5600FCA35D /* AsusHID.hpp in Headers */,
 				4C4FE6A82156A4340074AD08 /* karabiner_virtual_hid_device.hpp in Headers */,
 				4C4FE6A12156A3AD0074AD08 /* KernEventServer.hpp in Headers */,
 				4C4FE6252156A1690074AD08 /* AsusSMC.hpp in Headers */,
@@ -464,6 +479,7 @@
 			files = (
 				4C4FE6272156A1690074AD08 /* AsusSMC.cpp in Sources */,
 				4C4FE6C02156A5820074AD08 /* KeyImplementations.cpp in Sources */,
+				4CAE3C5322C43E5600FCA35D /* AsusHID.cpp in Sources */,
 				4C4FE6A62156A4340074AD08 /* VirtualHIDKeyboard.cpp in Sources */,
 				4C4FE6A02156A3AD0074AD08 /* KernEventServer.cpp in Sources */,
 			);
@@ -643,7 +659,7 @@
 					"$(PROJECT_DIR)/VirtualSMC.kext/Contents/Resources/",
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/",
 				);
-				INFOPLIST_FILE = AsusSMC/Info.plist;
+				INFOPLIST_FILE = Info.plist;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/Library",
@@ -673,7 +689,7 @@
 					"$(PROJECT_DIR)/VirtualSMC.kext/Contents/Resources/",
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/",
 				);
-				INFOPLIST_FILE = AsusSMC/Info.plist;
+				INFOPLIST_FILE = Info.plist;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/Library",
@@ -694,7 +710,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 2KGA95769D;
-				INFOPLIST_FILE = "$(SRCROOT)/AsusSMCDaemon/com.hieplpvip.AsusSMCDaemon.plist";
+				INFOPLIST_FILE = AsusSMCDaemon/com.hieplpvip.AsusSMCDaemon.plist;
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -705,7 +721,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 2KGA95769D;
-				INFOPLIST_FILE = "$(SRCROOT)/AsusSMCDaemon/com.hieplpvip.AsusSMCDaemon.plist";
+				INFOPLIST_FILE = AsusSMCDaemon/com.hieplpvip.AsusSMCDaemon.plist;
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
