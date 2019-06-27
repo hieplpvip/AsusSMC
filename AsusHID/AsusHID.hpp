@@ -8,6 +8,7 @@
 #ifndef AsusHID_hpp
 #define AsusHID_hpp
 
+#include <IOKit/hid/IOHIDKeys.h>
 #include <VirtualSMCSDK/kern_vsmcapi.hpp>
 
 enum {

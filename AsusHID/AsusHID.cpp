@@ -28,6 +28,13 @@ bool AsusHID::start(IOService *provider) {
         asusSMC->message(kAddAsusHID, this);
         DBGLOG("hid", "Connected with AsusSMC");
     }
+
+    setProperty("Copyright", "Copyright © 2019 hieplpvip");
+    setProperty(kIOHIDTransportKey, provider->copyProperty(kIOHIDTransportKey));
+    setProperty(kIOHIDManufacturerKey, provider->copyProperty(kIOHIDManufacturerKey));
+    setProperty(kIOHIDProductKey, provider->copyProperty(kIOHIDProductKey));
+    setProperty(kIOHIDLocationIDKey, provider->copyProperty(kIOHIDLocationIDKey));
+    setProperty(kIOHIDVersionNumberKey, provider->copyProperty(kIOHIDVersionNumberKey));
     return true;
 }
 
