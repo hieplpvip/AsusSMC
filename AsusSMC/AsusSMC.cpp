@@ -249,7 +249,7 @@ bool AsusSMC::start(IOService *provider) {
 
     workloop->addEventSource(command_gate);
 
-    setProperty("AsusHID Supported", true);
+    setProperty("AsusHIDHost", true);
 
     setProperty("IsTouchpadEnabled", true);
 
@@ -319,10 +319,10 @@ IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
 
             handleMessage(res);
         }
-    } else if (type == kAddAsusHID) {
+    } else if (type == kAddAsusHIDInterface) {
         DBGLOG("atk", "Connected with HID driver");
         _hidDrivers->setObject(provider);
-    } else if (type == kDelAsusHID) {
+    } else if (type == kDelAsusHIDInterface) {
         DBGLOG("atk", "Disconnected with HID driver");
         _hidDrivers->removeObject(provider);
     } else {

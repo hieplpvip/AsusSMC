@@ -47,9 +47,9 @@
 			<key>CFBundleIdentifier</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>IOClass</key>
-			<string>AsusHID</string>
+			<string>AsusHIDInterface</string>
 			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
+			<string>IOHIDDevice</string>
 			<key>ProductID</key>
 			<integer>6199</integer>
 			<key>VendorID</key>
@@ -60,9 +60,9 @@
 			<key>CFBundleIdentifier</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>IOClass</key>
-			<string>AsusHID</string>
+			<string>AsusHIDInterface</string>
 			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
+			<string>IOHIDDevice</string>
 			<key>ProductID</key>
 			<integer>6228</integer>
 			<key>VendorID</key>
@@ -73,9 +73,9 @@
 			<key>CFBundleIdentifier</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>IOClass</key>
-			<string>AsusHID</string>
+			<string>AsusHIDInterface</string>
 			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
+			<string>IOHIDDevice</string>
 			<key>ProductID</key>
 			<integer>6246</integer>
 			<key>VendorID</key>
@@ -86,9 +86,9 @@
 			<key>CFBundleIdentifier</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>IOClass</key>
-			<string>AsusHID</string>
+			<string>AsusHIDInterface</string>
 			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
+			<string>IOHIDDevice</string>
 			<key>ProductID</key>
 			<integer>6249</integer>
 			<key>VendorID</key>
