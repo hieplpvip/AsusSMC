@@ -1,6 +1,6 @@
 //
 //  main.m
-//  AsusSMC
+//  AsusSMCDaemon
 //
 //  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
 //

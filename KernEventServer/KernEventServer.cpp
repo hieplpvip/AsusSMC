@@ -1,6 +1,6 @@
 //
 //  KernEventServer.cpp
-//  AsusSMC
+//  KernEventServer
 //
 //  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
 //
