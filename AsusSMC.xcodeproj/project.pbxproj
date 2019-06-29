@@ -20,8 +20,8 @@
 		4C4FE6BD2156A4FB0074AD08 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6BB2156A4FB0074AD08 /* main.m */; };
 		4C4FE6C02156A5820074AD08 /* KeyImplementations.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6BE2156A5820074AD08 /* KeyImplementations.cpp */; };
 		4C4FE6C12156A5820074AD08 /* KeyImplementations.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */; };
-		4CAE3C5322C43E5600FCA35D /* AsusHIDInterface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAE3C5122C43E5600FCA35D /* AsusHIDInterface.cpp */; };
-		4CAE3C5422C43E5600FCA35D /* AsusHIDInterface.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4CAE3C5222C43E5600FCA35D /* AsusHIDInterface.hpp */; };
+		4CAE3C5322C43E5600FCA35D /* AsusHIDDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAE3C5122C43E5600FCA35D /* AsusHIDDriver.cpp */; };
+		4CAE3C5422C43E5600FCA35D /* AsusHIDDriver.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4CAE3C5222C43E5600FCA35D /* AsusHIDDriver.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -124,8 +124,8 @@
 		4C4FE6BE2156A5820074AD08 /* KeyImplementations.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = KeyImplementations.cpp; sourceTree = "<group>"; };
 		4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = KeyImplementations.hpp; sourceTree = "<group>"; };
 		4C4FE6C22156AA810074AD08 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		4CAE3C5122C43E5600FCA35D /* AsusHIDInterface.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AsusHIDInterface.cpp; sourceTree = "<group>"; };
-		4CAE3C5222C43E5600FCA35D /* AsusHIDInterface.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AsusHIDInterface.hpp; sourceTree = "<group>"; };
+		4CAE3C5122C43E5600FCA35D /* AsusHIDDriver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AsusHIDDriver.cpp; sourceTree = "<group>"; };
+		4CAE3C5222C43E5600FCA35D /* AsusHIDDriver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AsusHIDDriver.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -344,8 +344,8 @@
 		4CAE3C5022C43D2B00FCA35D /* AsusHID */ = {
 			isa = PBXGroup;
 			children = (
-				4CAE3C5122C43E5600FCA35D /* AsusHIDInterface.cpp */,
-				4CAE3C5222C43E5600FCA35D /* AsusHIDInterface.hpp */,
+				4CAE3C5122C43E5600FCA35D /* AsusHIDDriver.cpp */,
+				4CAE3C5222C43E5600FCA35D /* AsusHIDDriver.hpp */,
 			);
 			path = AsusHID;
 			sourceTree = "<group>";
@@ -357,7 +357,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4CAE3C5422C43E5600FCA35D /* AsusHIDInterface.hpp in Headers */,
+				4CAE3C5422C43E5600FCA35D /* AsusHIDDriver.hpp in Headers */,
 				4C4FE6A82156A4340074AD08 /* karabiner_virtual_hid_device.hpp in Headers */,
 				4C4FE6A12156A3AD0074AD08 /* KernEventServer.hpp in Headers */,
 				4C4FE6252156A1690074AD08 /* AsusSMC.hpp in Headers */,
@@ -479,7 +479,7 @@
 			files = (
 				4C4FE6272156A1690074AD08 /* AsusSMC.cpp in Sources */,
 				4C4FE6C02156A5820074AD08 /* KeyImplementations.cpp in Sources */,
-				4CAE3C5322C43E5600FCA35D /* AsusHIDInterface.cpp in Sources */,
+				4CAE3C5322C43E5600FCA35D /* AsusHIDDriver.cpp in Sources */,
 				4C4FE6A62156A4340074AD08 /* VirtualHIDKeyboard.cpp in Sources */,
 				4C4FE6A02156A3AD0074AD08 /* KernEventServer.cpp in Sources */,
 			);

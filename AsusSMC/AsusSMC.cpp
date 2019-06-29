@@ -319,10 +319,10 @@ IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
 
             handleMessage(res);
         }
-    } else if (type == kAddAsusHIDInterface) {
+    } else if (type == kAddAsusHIDDriver) {
         DBGLOG("atk", "Connected with HID driver");
         _hidDrivers->setObject(provider);
-    } else if (type == kDelAsusHIDInterface) {
+    } else if (type == kDelAsusHIDDriver) {
         DBGLOG("atk", "Disconnected with HID driver");
         _hidDrivers->removeObject(provider);
     } else {

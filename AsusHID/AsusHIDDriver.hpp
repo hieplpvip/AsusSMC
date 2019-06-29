@@ -1,12 +1,12 @@
 //
-//  AsusHIDInterface.hpp
+//  AsusHIDDriver.hpp
 //  AsusSMC
 //
 //  Copyright © 2019 Le Bao Hiep
 //
 
-#ifndef AsusHIDInterface_hpp
-#define AsusHIDInterface_hpp
+#ifndef AsusHIDDriver_hpp
+#define AsusHIDDriver_hpp
 
 #include <IOKit/hid/IOHIDDevice.h>
 #include <IOKit/hid/IOHIDInterface.h>
@@ -17,24 +17,26 @@
 #define FEATURE_KBD_REPORT_SIZE 16
 
 enum {
-    kAddAsusHIDInterface = iokit_vendor_specific_msg(8102),
-    kDelAsusHIDInterface = iokit_vendor_specific_msg(7501),
+    kAddAsusHIDDriver = iokit_vendor_specific_msg(8102),
+    kDelAsusHIDDriver = iokit_vendor_specific_msg(7501),
 };
 
-class AsusHIDInterface : public IOService {
-    OSDeclareDefaultStructors(AsusHIDInterface)
+class AsusHIDDriver : public IOService {
+    OSDeclareDefaultStructors(AsusHIDDriver)
 
 public:
     virtual bool start(IOService *provider) override;
     virtual void stop(IOService *provider) override;
+    void handleInterruptReport(AbsoluteTime timestamp, IOMemoryDescriptor* report, IOHIDReportType report_type, UInt32 report_id);
 
 private:
     IOService *asusSMC {nullptr};
     IOHIDDevice* hid_device {nullptr};
+    IOHIDInterface* hid_interface {nullptr};
 
     // Ported from hid-asus driver
     void asus_kbd_init();
     void asus_kbd_backlight_set(uint8_t val);
     void asus_kbd_get_functions(unsigned char *kbd_func);
 };
-#endif /* AsusHIDInterface_hpp */
+#endif /* AsusHIDDriver_hpp */

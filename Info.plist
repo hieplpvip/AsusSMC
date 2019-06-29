@@ -46,10 +46,12 @@
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOMatchCategory</key>
+			<string>AsusHID</string>
 			<key>IOClass</key>
-			<string>AsusHIDInterface</string>
+			<string>AsusHIDDriver</string>
 			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
+			<string>IOHIDInterface</string>
 			<key>ProductID</key>
 			<integer>6199</integer>
 			<key>VendorID</key>
@@ -59,10 +61,12 @@
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOMatchCategory</key>
+			<string>AsusHID</string>
 			<key>IOClass</key>
-			<string>AsusHIDInterface</string>
+			<string>AsusHIDDriver</string>
 			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
+			<string>IOHIDInterface</string>
 			<key>ProductID</key>
 			<integer>6228</integer>
 			<key>VendorID</key>
@@ -72,10 +76,12 @@
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOMatchCategory</key>
+			<string>AsusHID</string>
 			<key>IOClass</key>
-			<string>AsusHIDInterface</string>
+			<string>AsusHIDDriver</string>
 			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
+			<string>IOHIDInterface</string>
 			<key>ProductID</key>
 			<integer>6246</integer>
 			<key>VendorID</key>
@@ -85,10 +91,12 @@
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOMatchCategory</key>
+			<string>AsusHID</string>
 			<key>IOClass</key>
-			<string>AsusHIDInterface</string>
+			<string>AsusHIDDriver</string>
 			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
+			<string>IOHIDInterface</string>
 			<key>ProductID</key>
 			<integer>6249</integer>
 			<key>VendorID</key>

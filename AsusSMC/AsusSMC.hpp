@@ -62,8 +62,8 @@ enum {
 };
 
 enum {
-    kAddAsusHIDInterface = iokit_vendor_specific_msg(8102),
-    kDelAsusHIDInterface = iokit_vendor_specific_msg(7501),
+    kAddAsusHIDDriver = iokit_vendor_specific_msg(8102),
+    kDelAsusHIDDriver = iokit_vendor_specific_msg(7501),
 };
 
 enum {
