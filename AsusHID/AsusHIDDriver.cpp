@@ -7,8 +7,8 @@
 
 #include "AsusHIDDriver.hpp"
 
-#define super IOService
-OSDefineMetaClassAndStructors(AsusHIDDriver, IOService);
+#define super IOHIDEventDriver
+OSDefineMetaClassAndStructors(AsusHIDDriver, IOHIDEventDriver);
 
 bool AsusHIDDriver::start(IOService *provider) {
     DBGLOG("hid", "start is called");
@@ -17,8 +17,6 @@ bool AsusHIDDriver::start(IOService *provider) {
         SYSLOG("hid", "Error loading HID driver");
         return false;
     }
-
-    this->attach(provider);
 
     auto dict = propertyMatching(OSSymbol::withCString("AsusHIDHost"), kOSBooleanTrue);
     auto asusSMC = IOService::waitForMatchingService(dict, 5000000000); // wait for 5 secs
@@ -37,23 +35,14 @@ bool AsusHIDDriver::start(IOService *provider) {
     if (!hid_device)
         return false;
 
-    //if (!hid_interface->open(this, 0, OSMemberFunctionCast(IOHIDInterface::InterruptReportAction, this, &AsusHIDDriver::handleInterruptReport), NULL))
-    //    return false;
-
     hid_interface->setProperty("AsusHIDSupported", true);
     hid_device->setProperty("AsusHIDSupported", true);
-
     setProperty("AsusHIDSupported", true);
     setProperty("Copyright", "Copyright © 2019 hieplpvip");
-    setProperty(kIOHIDTransportKey, hid_device->copyProperty(kIOHIDTransportKey));
-    setProperty(kIOHIDManufacturerKey, hid_device->copyProperty(kIOHIDManufacturerKey));
-    setProperty(kIOHIDProductKey, hid_device->copyProperty(kIOHIDProductKey));
-    setProperty(kIOHIDLocationIDKey, hid_device->copyProperty(kIOHIDLocationIDKey));
-    setProperty(kIOHIDSerialNumberKey, hid_device->copyProperty(kIOHIDSerialNumberKey));
-    setProperty(kIOHIDVersionNumberKey, hid_device->copyProperty(kIOHIDVersionNumberKey));
 
     asus_kbd_init();
     asus_kbd_backlight_set(255);
+
     return true;
 }
 
@@ -66,7 +55,6 @@ void AsusHIDDriver::stop(IOService *provider) {
     }
     OSSafeReleaseNULL(asusSMC);
 
-    //hid_interface->close(this);
     hid_interface = nullptr;
     hid_device = nullptr;
 
@@ -75,6 +63,7 @@ void AsusHIDDriver::stop(IOService *provider) {
 
 void AsusHIDDriver::handleInterruptReport(AbsoluteTime timestamp, IOMemoryDescriptor* report, IOHIDReportType report_type, UInt32 report_id) {
     DBGLOG("hid", "handleInterruptReport is called");
+    super::handleInterruptReport(timestamp, report, report_type, report_id);
 }
 
 #pragma mark -

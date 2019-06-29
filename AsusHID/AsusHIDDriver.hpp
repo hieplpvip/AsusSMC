@@ -10,6 +10,7 @@
 
 #include <IOKit/hid/IOHIDDevice.h>
 #include <IOKit/hid/IOHIDInterface.h>
+#include <IOKit/hidevent/IOHIDEventDriver.h>
 #include <IOKit/hid/IOHIDKeys.h>
 #include <VirtualSMCSDK/kern_vsmcapi.hpp>
 
@@ -21,13 +22,13 @@ enum {
     kDelAsusHIDDriver = iokit_vendor_specific_msg(7501),
 };
 
-class AsusHIDDriver : public IOService {
+class AsusHIDDriver : public IOHIDEventDriver {
     OSDeclareDefaultStructors(AsusHIDDriver)
 
 public:
     virtual bool start(IOService *provider) override;
     virtual void stop(IOService *provider) override;
-    void handleInterruptReport(AbsoluteTime timestamp, IOMemoryDescriptor* report, IOHIDReportType report_type, UInt32 report_id);
+    void handleInterruptReport(AbsoluteTime timestamp, IOMemoryDescriptor* report, IOHIDReportType report_type, UInt32 report_id) override;
 
 private:
     IOService *asusSMC {nullptr};
