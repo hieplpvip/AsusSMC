@@ -230,10 +230,6 @@ bool AsusSMC::start(IOService *provider) {
 
     registerVSMC();
 
-    PMinit();
-    registerPowerDriver(this, powerStateArray, kAsusSMCIOPMNumberPowerStates);
-    provider->joinPMtree(this);
-
     this->registerService(0);
 
     workloop = getWorkLoop();
@@ -280,24 +276,9 @@ void AsusSMC::stop(IOService *provider) {
     OSSafeReleaseNULL(_hidDrivers);
 
     OSSafeReleaseNULL(_virtualKBrd);
-    PMstop();
 
     super::stop(provider);
     return;
-}
-
-IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService *whatDevice) {
-    if (whatDevice != this)
-        return IOPMAckImplied;
-
-    if (!powerStateOrdinal)
-        DBGLOG("atk", "Going to sleep");
-    else {
-        DBGLOG("atk", "Woke up from sleep");
-        IOSleep(1000);
-    }
-
-    return IOPMAckImplied;
 }
 
 #pragma mark -

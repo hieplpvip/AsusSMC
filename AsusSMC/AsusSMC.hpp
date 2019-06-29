@@ -38,14 +38,6 @@ struct guid_block {
 #define ACPI_WMI_STRING      0x4    /* GUID takes & returns a string */
 #define ACPI_WMI_EVENT       0x8    /* GUID is an event */
 
-#define kIOPMPowerOff                       0
-#define kAsusSMCIOPMNumberPowerStates     2
-static IOPMPowerState powerStateArray[kAsusSMCIOPMNumberPowerStates] =
-{
-    { 1,kIOPMPowerOff,kIOPMPowerOff,kIOPMPowerOff,0,0,0,0,0,0,0,0 },
-    { 1,kIOPMPowerOn,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0 }
-};
-
 #define AsusSMCEventCode 0x8102
 
 const UInt8 NOTIFY_BRIGHTNESS_UP_MIN = 0x10;
@@ -101,9 +93,6 @@ public:
     virtual bool start(IOService *provider) override;
     virtual void stop(IOService *provider) override;
     virtual IOService *probe(IOService *provider, SInt32 *score) override;
-    
-    //power management events
-    virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService *policyMaker) override;
 
 protected:
 
