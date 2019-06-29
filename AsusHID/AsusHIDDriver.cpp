@@ -2,7 +2,7 @@
 //  AsusHIDDriver.cpp
 //  AsusSMC
 //
-//  Copyright © 2019 Le Bao Hiep
+//  Copyright © 2019 Le Bao Hiep. All rights reserved.
 //
 
 #include "AsusHIDDriver.hpp"
@@ -38,7 +38,7 @@ bool AsusHIDDriver::start(IOService *provider) {
     hid_interface->setProperty("AsusHIDSupported", true);
     hid_device->setProperty("AsusHIDSupported", true);
     setProperty("AsusHIDSupported", true);
-    setProperty("Copyright", "Copyright © 2019 hieplpvip");
+    setProperty("Copyright", "Copyright © 2018-2019 Le Bao Hiep. All rights reserved.");
 
     asus_kbd_init();
     asus_kbd_backlight_set(255);

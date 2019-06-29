@@ -2,7 +2,7 @@
 //  AsusSMC.cpp
 //  AsusSMC
 //
-//  Copyright © 2018 Le Bao Hiep
+//  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
 //
 
 #include "AsusSMC.hpp"
@@ -250,10 +250,8 @@ bool AsusSMC::start(IOService *provider) {
     workloop->addEventSource(command_gate);
 
     setProperty("AsusHIDHost", true);
-
     setProperty("IsTouchpadEnabled", true);
-
-    setProperty("Copyright", "Copyright © 2018 hieplpvip");
+    setProperty("Copyright", "Copyright © 2018-2019 Le Bao Hiep. All rights reserved.");
 
     return true;
 }

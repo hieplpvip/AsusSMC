@@ -2,7 +2,7 @@
 //  AsusHIDDriver.hpp
 //  AsusSMC
 //
-//  Copyright © 2019 Le Bao Hiep
+//  Copyright © 2019 Le Bao Hiep. All rights reserved.
 //
 
 #ifndef AsusHIDDriver_hpp
