@@ -31,6 +31,14 @@ bool AsusHIDDriver::start(IOService *provider) {
     setProperty("AsusHIDSupported", true);
     setProperty("Copyright", "Copyright © 2018-2019 Le Bao Hiep. All rights reserved.");
 
+    extern kmod_info_t kmod_info;
+    setProperty("AsusSMC-Version", kmod_info.version);
+#ifdef DEBUG
+    setProperty("AsusSMC-Build", "Debug");
+#else
+    setProperty("AsusSMC-Build", "Release");
+#endif
+
     asus_kbd_init();
     asus_kbd_backlight_set(255);
 

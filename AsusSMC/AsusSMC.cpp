@@ -249,6 +249,13 @@ bool AsusSMC::start(IOService *provider) {
     setProperty("IsTouchpadEnabled", true);
     setProperty("Copyright", "Copyright © 2018-2019 Le Bao Hiep. All rights reserved.");
 
+    extern kmod_info_t kmod_info;
+    setProperty("AsusSMC-Version", kmod_info.version);
+#ifdef DEBUG
+    setProperty("AsusSMC-Build", "Debug");
+#else
+    setProperty("AsusSMC-Build", "Release");
+#endif
     return true;
 }
 
