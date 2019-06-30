@@ -10,7 +10,6 @@
 
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOCommandGate.h>
-
 #include "karabiner_virtual_hid_device.hpp"
 #include "VirtualHIDKeyboard.hpp"
 #include "KernEventServer.hpp"
@@ -54,23 +53,10 @@ enum {
 };
 
 enum {
-    kAddAsusHIDDriver = iokit_vendor_specific_msg(8102),
-    kDelAsusHIDDriver = iokit_vendor_specific_msg(7501),
-};
-
-enum {
     kevKeyboardBacklight = 1,
     kevAirplaneMode = 2,
     kevSleep = 3,
     kevTouchpad = 4,
-};
-
-enum ReportType {
-    none = 0,
-    keyboard_input = 1,
-    consumer_input = 2,
-    apple_vendor_top_case_input = 3,
-    apple_vendor_keyboard_input = 4,
 };
 
 class AsusSMC : public IOService {

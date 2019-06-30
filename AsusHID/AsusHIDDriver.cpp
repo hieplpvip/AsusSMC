@@ -18,15 +18,6 @@ bool AsusHIDDriver::start(IOService *provider) {
         return false;
     }
 
-    auto dict = propertyMatching(OSSymbol::withCString("AsusHIDHost"), kOSBooleanTrue);
-    auto asusSMC = IOService::waitForMatchingService(dict, 5000000000); // wait for 5 secs
-    dict->release();
-
-    if (asusSMC) {
-        asusSMC->message(kAddAsusHIDDriver, this);
-        DBGLOG("hid", "Connected with AsusSMC");
-    }
-
     hid_interface = OSDynamicCast(IOHIDInterface, provider);
     if (!hid_interface)
         return false;
@@ -43,6 +34,14 @@ bool AsusHIDDriver::start(IOService *provider) {
     asus_kbd_init();
     asus_kbd_backlight_set(255);
 
+    auto dict = propertyMatching(OSSymbol::withCString("AsusHIDHost"), kOSBooleanTrue);
+    auto asusSMC = IOService::waitForMatchingService(dict, 5000000000); // wait for 5 secs
+    dict->release();
+
+    if (asusSMC) {
+        asusSMC->message(kAddAsusHIDDriver, this);
+        DBGLOG("hid", "Connected with AsusSMC");
+    }
     return true;
 }
 
@@ -64,6 +63,53 @@ void AsusHIDDriver::stop(IOService *provider) {
 void AsusHIDDriver::handleInterruptReport(AbsoluteTime timestamp, IOMemoryDescriptor* report, IOHIDReportType report_type, UInt32 report_id) {
     DBGLOG("hid", "handleInterruptReport is called");
     super::handleInterruptReport(timestamp, report, report_type, report_id);
+}
+
+void AsusHIDDriver::dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePage, UInt32 usage, UInt32 value, IOOptionBits options) {
+    if (usagePage == kHIDPage_AsusVendor) {
+        switch (usage) {
+            case 0x10:
+                usagePage = kHIDPage_AppleVendorTopCase;
+                usage = kHIDUsage_AV_TopCase_BrightnessDown;
+                break;
+            case 0x20:
+                usagePage = kHIDPage_AppleVendorTopCase;
+                usage = kHIDUsage_AV_TopCase_BrightnessUp;
+                break;
+            case 0xc4:
+                usagePage = kHIDPage_AppleVendorTopCase;
+                usage = kHIDUsage_AV_TopCase_IlluminationUp;
+                break;
+            case 0xc5:
+                usagePage = kHIDPage_AppleVendorTopCase;
+                usage = kHIDUsage_AV_TopCase_IlluminationDown;
+                break;
+            default:
+                DBGLOG("hid", "AsusVendor HID UsagePage: unknown usage %d", usage);
+                return; // ignore the rest
+        }
+    }
+    if (usagePage == kHIDPage_MicrosoftVendor) {
+        switch (usage) {
+            case 0xf2:
+                usagePage = kHIDPage_AppleVendorTopCase;
+                usage = kHIDUsage_AV_TopCase_BrightnessDown;
+                break;
+            case 0xf3:
+                usagePage = kHIDPage_AppleVendorTopCase;
+                usage = kHIDUsage_AV_TopCase_BrightnessUp;
+                break;
+            default:
+                DBGLOG("hid", "MicrosoftVendor HID UsagePage: unknown usage %d", usage);
+                break;
+        }
+    }
+    super::dispatchKeyboardEvent(timeStamp, usagePage, usage, value, options);
+}
+
+void AsusHIDDriver::setKeyboardBacklight(uint8_t val) {
+    DBGLOG("hid", "setKeyboardBacklight val=%d", val);
+    asus_kbd_backlight_set(val);
 }
 
 #pragma mark -

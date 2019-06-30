@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4C17428122C85E6E00469B7E /* AppleHIDUsageTables.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C17428022C85E6E00469B7E /* AppleHIDUsageTables.h */; };
 		4C3236382158FFBE00700256 /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FE6892156A3610074AD08 /* libkmod.a */; };
 		4C4FE6252156A1690074AD08 /* AsusSMC.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6242156A1690074AD08 /* AsusSMC.hpp */; };
 		4C4FE6272156A1690074AD08 /* AsusSMC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6262156A1690074AD08 /* AsusSMC.cpp */; };
@@ -54,6 +55,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4C17428022C85E6E00469B7E /* AppleHIDUsageTables.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleHIDUsageTables.h; sourceTree = "<group>"; };
 		4C27D2BF218B647F0089409B /* LICENSE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LICENSE.md; sourceTree = "<group>"; };
 		4C32363D215901DF00700256 /* package.tool */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = package.tool; sourceTree = "<group>"; };
 		4C32364A2159051A00700256 /* install_daemon.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install_daemon.sh; sourceTree = "<group>"; };
@@ -313,6 +315,7 @@
 		4C4FE6A22156A4270074AD08 /* VirtualHIDKeyboard */ = {
 			isa = PBXGroup;
 			children = (
+				4C17428022C85E6E00469B7E /* AppleHIDUsageTables.h */,
 				4C4FE6A52156A4340074AD08 /* karabiner_virtual_hid_device.hpp */,
 				4C4FE6A32156A4340074AD08 /* VirtualHIDKeyboard.cpp */,
 				4C4FE6A42156A4340074AD08 /* VirtualHIDKeyboard.hpp */,
@@ -360,6 +363,7 @@
 				4CAE3C5422C43E5600FCA35D /* AsusHIDDriver.hpp in Headers */,
 				4C4FE6A82156A4340074AD08 /* karabiner_virtual_hid_device.hpp in Headers */,
 				4C4FE6A12156A3AD0074AD08 /* KernEventServer.hpp in Headers */,
+				4C17428122C85E6E00469B7E /* AppleHIDUsageTables.h in Headers */,
 				4C4FE6252156A1690074AD08 /* AsusSMC.hpp in Headers */,
 				4C4FE6C12156A5820074AD08 /* KeyImplementations.hpp in Headers */,
 				4C4FE6A72156A4340074AD08 /* VirtualHIDKeyboard.hpp in Headers */,

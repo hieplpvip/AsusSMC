@@ -10,6 +10,7 @@
 
 #include <VirtualSMCSDK/kern_vsmcapi.hpp>
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
+#include "AsusHIDDriver.hpp"
 
 /**
  *  Key name definitions for VirtualSMC
@@ -137,6 +138,7 @@ public:
 class SMCKBrdBLightValue : public VirtualSMCValue {
 protected:
     IOACPIPlatformDevice *atkDevice {nullptr};
+    OSSet *_hidDrivers {nullptr};
 public:
     /**
      *  Keyboard backlight brightness
@@ -150,7 +152,7 @@ public:
         uint8_t val2 {1};
     };
 
-    SMCKBrdBLightValue(IOACPIPlatformDevice *atkDevice): atkDevice(atkDevice) {}
+    SMCKBrdBLightValue(IOACPIPlatformDevice *atkDevice, OSSet *_hidDrivers): atkDevice(atkDevice), _hidDrivers(_hidDrivers) {}
 
     SMC_RESULT update(const SMC_DATA *src) override;
 };
