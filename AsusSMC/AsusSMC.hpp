@@ -47,9 +47,9 @@ const UInt8 NOTIFY_BRIGHTNESS_DOWN_MAX = 0x2F;
 
 #define kDeliverNotifications "RM,deliverNotifications"
 enum {
-    kKeyboardSetTouchStatus = iokit_vendor_specific_msg(100),        // set disable/enable touchpad (data is bool*)
-    kKeyboardGetTouchStatus = iokit_vendor_specific_msg(101),        // get disable/enable touchpad (data is bool*)
-    kKeyboardKeyPressTime = iokit_vendor_specific_msg(110),          // notify of timestamp a non-modifier key was pressed (data is uint64_t*)
+    kKeyboardSetTouchStatus = iokit_vendor_specific_msg(100), // set disable/enable touchpad (data is bool*)
+    kKeyboardGetTouchStatus = iokit_vendor_specific_msg(101), // get disable/enable touchpad (data is bool*)
+    kKeyboardKeyPressTime = iokit_vendor_specific_msg(110),   // notify of timestamp a non-modifier key was pressed (data is uint64_t*)
 };
 
 enum {
@@ -74,12 +74,15 @@ class AsusSMC : public IOService {
 public:
     virtual IOReturn message(UInt32 type, IOService *provider, void *argument) override;
 
-    // standard IOKit methods
     virtual bool init(OSDictionary *dictionary = 0) override;
     virtual bool start(IOService *provider) override;
     virtual void stop(IOService *provider) override;
     virtual IOService *probe(IOService *provider, SInt32 *score) override;
 
+    void letSleep();
+    void toggleAirplaneMode();
+    void toggleTouchpad();
+    void displayOff();
 protected:
 
     OSDictionary *properties {nullptr};
@@ -134,7 +137,7 @@ protected:
      */
     VirtualHIDKeyboard *_virtualKBrd {nullptr};
 
-    karabiner_virtual_hid_device::hid_report::keyboard_input kbreport;
+    karabiner_virtual_hid_device::hid_report::consumer_input csmrreport;
     karabiner_virtual_hid_device::hid_report::apple_vendor_top_case_input tcreport;
 
     /**
@@ -207,7 +210,7 @@ protected:
      */
     IOReturn postKeyboardInputReport(const void *report, uint32_t reportSize);
 
-    void dispatchKBReport(int code, int loop = 1);
+    void dispatchCSMRReport(int code, int loop = 1);
     void dispatchTCReport(int code, int loop = 1);
 
     /**

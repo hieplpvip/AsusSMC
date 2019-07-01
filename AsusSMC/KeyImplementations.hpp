@@ -8,9 +8,9 @@
 #ifndef KeyImplementations_hpp
 #define KeyImplementations_hpp
 
-#include <VirtualSMCSDK/kern_vsmcapi.hpp>
-#include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include "AsusHIDDriver.hpp"
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
+#include <VirtualSMCSDK/kern_vsmcapi.hpp>
 
 /**
  *  Key name definitions for VirtualSMC

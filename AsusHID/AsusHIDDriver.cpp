@@ -5,6 +5,7 @@
 //  Copyright © 2019 Le Bao Hiep. All rights reserved.
 //
 
+#include "AppleHIDUsageTables.h"
 #include "AsusHIDDriver.hpp"
 
 #define super IOHIDEventDriver
@@ -26,6 +27,9 @@ bool AsusHIDDriver::start(IOService *provider) {
     if (!hid_device)
         return false;
 
+    OSArray *elements = hid_interface->createMatchingElements();
+    parseCustomKeyboardElements(elements);
+
     hid_interface->setProperty("AsusHIDSupported", true);
     hid_device->setProperty("AsusHIDSupported", true);
     setProperty("AsusHIDSupported", true);
@@ -43,11 +47,11 @@ bool AsusHIDDriver::start(IOService *provider) {
     asus_kbd_backlight_set(255);
 
     auto dict = propertyMatching(OSSymbol::withCString("AsusHIDHost"), kOSBooleanTrue);
-    auto asusSMC = IOService::waitForMatchingService(dict, 5000000000); // wait for 5 secs
+    _asusSMC = IOService::waitForMatchingService(dict, 5000000000); // wait for 5 secs
     dict->release();
 
-    if (asusSMC) {
-        asusSMC->message(kAddAsusHIDDriver, this);
+    if (_asusSMC) {
+        _asusSMC->message(kAddAsusHIDDriver, this);
         DBGLOG("hid", "Connected with AsusSMC");
     }
     return true;
@@ -56,11 +60,11 @@ bool AsusHIDDriver::start(IOService *provider) {
 void AsusHIDDriver::stop(IOService *provider) {
     DBGLOG("hid", "stop is called");
 
-    if (asusSMC) {
-        asusSMC->message(kDelAsusHIDDriver, this);
+    if (_asusSMC) {
+        _asusSMC->message(kDelAsusHIDDriver, this);
         DBGLOG("hid", "Disconnected with AsusSMC");
     }
-    OSSafeReleaseNULL(asusSMC);
+    OSSafeReleaseNULL(_asusSMC);
 
     hid_interface = nullptr;
     hid_device = nullptr;
@@ -68,47 +72,142 @@ void AsusHIDDriver::stop(IOService *provider) {
     super::stop(provider);
 }
 
-void AsusHIDDriver::handleInterruptReport(AbsoluteTime timestamp, IOMemoryDescriptor* report, IOHIDReportType report_type, UInt32 report_id) {
-    DBGLOG("hid", "handleInterruptReport is called");
-    super::handleInterruptReport(timestamp, report, report_type, report_id);
+void AsusHIDDriver::parseCustomKeyboardElements(OSArray *elementArray) {
+    customKeyboardElements = OSArray::withCapacity(4);
+    UInt32 count, index;
+    for (index = 0, count = elementArray->getCount(); index < count; index++ ) {
+        IOHIDElement *element = OSDynamicCast(IOHIDElement, elementArray->getObject(index));
+        if (!element || element->getUsage() == 0)
+            continue;
+        if (element->getType() == kIOHIDElementTypeCollection)
+            continue;
+
+        UInt32 usagePage      = element->getUsagePage();
+        UInt32 usage          = element->getUsage();
+        bool   store          = false;
+
+        switch (usagePage) {
+            case kHIDPage_AsusVendor:
+                switch (usage) {
+                    case kHIDUsage_AsusVendor_BrightnessDown:
+                    case kHIDUsage_AsusVendor_BrightnessUp:
+                    case kHIDUsage_AsusVendor_DisplayOff:
+                    case kHIDUsage_AsusVendor_ROG:
+                    case kHIDUsage_AsusVendor_Power4Gear:
+                    case kHIDUsage_AsusVendor_TouchpadToggle:
+                    case kHIDUsage_AsusVendor_Sleep:
+                    case kHIDUsage_AsusVendor_MicMute:
+                    case kHIDUsage_AsusVendor_Camera:
+                    case kHIDUsage_AsusVendor_RFKill:
+                    case kHIDUsage_AsusVendor_Fan:
+                    case kHIDUsage_AsusVendor_Calc:
+                    case kHIDUsage_AsusVendor_Splendid:
+                    case kHIDUsage_AsusVendor_IlluminationUp:
+                    case kHIDUsage_AsusVendor_IlluminationDown:
+                        store = true;
+                        break;
+                }
+                break;
+            case kHIDPage_MicrosoftVendor:
+                switch (usage) {
+                    case kHIDUsage_MicrosoftVendor_WLAN:
+                    case kHIDUsage_MicrosoftVendor_BrightnessDown:
+                    case kHIDUsage_MicrosoftVendor_BrightnessUp:
+                    case kHIDUsage_MicrosoftVendor_DisplayOff:
+                    case kHIDUsage_MicrosoftVendor_Camera:
+                    case kHIDUsage_MicrosoftVendor_ROG:
+                        store = true;
+                        break;
+                }
+                break;
+        }
+        if (store)
+            customKeyboardElements->setObject(element);
+    }
+    setProperty("CustomKeyboardElements", customKeyboardElements);
+}
+
+void AsusHIDDriver::handleInterruptReport(AbsoluteTime timeStamp, IOMemoryDescriptor *report, IOHIDReportType reportType, UInt32 reportID) {
+    DBGLOG("hid", "handleInterruptReport reportLength=%d reportType=%d reportID=%d", report->getLength(), reportType, reportID);
+    UInt32 index, count;
+    for (index = 0, count = customKeyboardElements->getCount(); index < count; index++) {
+        IOHIDElement * element;
+        AbsoluteTime   elementTimeStamp;
+        UInt32         usagePage, usage, value, preValue;
+
+        element = OSDynamicCast(IOHIDElement, customKeyboardElements->getObject(index));
+        if (!element || element->getReportID() != reportID)
+            continue;
+
+        elementTimeStamp = element->getTimeStamp();
+        if (CMP_ABSOLUTETIME(&timeStamp, &elementTimeStamp) != 0)
+            continue;
+
+        preValue = element->getValue(kIOHIDValueOptionsFlagPrevious) != 0;
+        value    = element->getValue() != 0;
+
+        if (value == preValue)
+            continue;
+
+        usagePage = element->getUsagePage();
+        usage     = element->getUsage();
+
+        dispatchKeyboardEvent(timeStamp, usagePage, usage, value);
+        return;
+    }
+    super::handleInterruptReport(timeStamp, report, reportType, reportID);
 }
 
 void AsusHIDDriver::dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePage, UInt32 usage, UInt32 value, IOOptionBits options) {
+    DBGLOG("hid", "dispatchKeyboardEvent usagePage=%d usage=%d", usagePage, usage);
     if (usagePage == kHIDPage_AsusVendor) {
         switch (usage) {
-            case 0x10:
+            case kHIDUsage_AsusVendor_BrightnessDown:
                 usagePage = kHIDPage_AppleVendorTopCase;
                 usage = kHIDUsage_AV_TopCase_BrightnessDown;
                 break;
-            case 0x20:
+            case kHIDUsage_AsusVendor_BrightnessUp:
                 usagePage = kHIDPage_AppleVendorTopCase;
                 usage = kHIDUsage_AV_TopCase_BrightnessUp;
                 break;
-            case 0xc4:
+            case kHIDUsage_AsusVendor_IlluminationUp:
                 usagePage = kHIDPage_AppleVendorTopCase;
                 usage = kHIDUsage_AV_TopCase_IlluminationUp;
                 break;
-            case 0xc5:
+            case kHIDUsage_AsusVendor_IlluminationDown:
                 usagePage = kHIDPage_AppleVendorTopCase;
                 usage = kHIDUsage_AV_TopCase_IlluminationDown;
                 break;
+            case kHIDUsage_AsusVendor_Sleep:
+                if (value && _asusSMC) _asusSMC->message(kSleep, this);
+                return;
+            case kHIDUsage_AsusVendor_TouchpadToggle:
+                if (value && _asusSMC) _asusSMC->message(kTouchpadToggle, this);
+                return;
+            case kHIDUsage_AsusVendor_DisplayOff:
+                if (value && _asusSMC) _asusSMC->message(kDisplayOff, this);
+                return;
             default:
-                DBGLOG("hid", "AsusVendor HID UsagePage: unknown usage %d", usage);
-                return; // ignore the rest
+                return;
         }
     }
     if (usagePage == kHIDPage_MicrosoftVendor) {
         switch (usage) {
-            case 0xf2:
+            case kHIDUsage_MicrosoftVendor_WLAN:
+                if (value && _asusSMC) _asusSMC->message(kAirplaneMode, this);
+                return;
+            case kHIDUsage_MicrosoftVendor_BrightnessDown:
                 usagePage = kHIDPage_AppleVendorTopCase;
                 usage = kHIDUsage_AV_TopCase_BrightnessDown;
                 break;
-            case 0xf3:
+            case kHIDUsage_MicrosoftVendor_BrightnessUp:
                 usagePage = kHIDPage_AppleVendorTopCase;
                 usage = kHIDUsage_AV_TopCase_BrightnessUp;
                 break;
+            case kHIDUsage_MicrosoftVendor_DisplayOff:
+                if (value && _asusSMC) _asusSMC->message(kDisplayOff, this);
+                return;
             default:
-                DBGLOG("hid", "MicrosoftVendor HID UsagePage: unknown usage %d", usage);
                 break;
         }
     }

@@ -39,11 +39,11 @@ public:
     // ----------------------------------------
 
     virtual OSNumber *newPrimaryUsagePageNumber() const override {
-        return OSNumber::withNumber(static_cast<uint32_t>(kHIDPage_GenericDesktop), 32);
+        return OSNumber::withNumber(static_cast<uint32_t>(kHIDPage_Consumer), 32);
     }
 
     virtual OSNumber *newPrimaryUsageNumber() const override {
-        return OSNumber::withNumber(static_cast<uint32_t>(kHIDUsage_GD_Keyboard), 32);
+        return OSNumber::withNumber(static_cast<uint32_t>(kHIDUsage_Csmr_ConsumerControl), 32);
     }
 
     // ----------------------------------------
