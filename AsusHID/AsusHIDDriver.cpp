@@ -5,7 +5,6 @@
 //  Copyright © 2019 Le Bao Hiep. All rights reserved.
 //
 
-#include "AppleHIDUsageTables.h"
 #include "AsusHIDDriver.hpp"
 
 #define super IOHIDEventDriver

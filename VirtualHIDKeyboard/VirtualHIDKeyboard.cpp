@@ -1,3 +1,10 @@
+//
+//  VirtualHIDKeyboard.cpp
+//  VirtualHIDKeyboard
+//
+//  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
+//
+
 #include "VirtualHIDKeyboard.hpp"
 
 #define super IOHIDDevice

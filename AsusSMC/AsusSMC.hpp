@@ -10,7 +10,7 @@
 
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOCommandGate.h>
-#include "karabiner_virtual_hid_device.hpp"
+#include "HIDReport.hpp"
 #include "VirtualHIDKeyboard.hpp"
 #include "KernEventServer.hpp"
 #include "KeyImplementations.hpp"
@@ -136,8 +136,8 @@ protected:
      */
     VirtualHIDKeyboard *_virtualKBrd {nullptr};
 
-    karabiner_virtual_hid_device::hid_report::consumer_input csmrreport;
-    karabiner_virtual_hid_device::hid_report::apple_vendor_top_case_input tcreport;
+    consumer_input csmrreport;
+    apple_vendor_top_case_input tcreport;
 
     /**
      *  Touchpad enabled status

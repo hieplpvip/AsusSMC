@@ -1,3 +1,10 @@
+//
+//  VirtualHIDKeyboard.hpp
+//  VirtualHIDKeyboard
+//
+//  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
+//
+
 #include <IOKit/hid/IOHIDDevice.h>
 
 class VirtualHIDKeyboard final : public IOHIDDevice {
