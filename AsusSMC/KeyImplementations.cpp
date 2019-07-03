@@ -2,7 +2,7 @@
 //  KeyImplementations.cpp
 //  AsusSMC
 //
-//  Copyright © 2018 Le Bao Hiep
+//  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
 //
 
 #include "KeyImplementations.hpp"
@@ -28,18 +28,26 @@ SMC_RESULT SMCALSValue::readAccess() {
 }
 
 SMC_RESULT SMCKBrdBLightValue::update(const SMC_DATA *src)  {
-    // Call ACPI method to adjust keyboard backlight
     lkb *value = new lkb;
     lilu_os_memcpy(value, src, size);
-    if (atkDevice) {
-        uint16_t tval = (value->val1 << 4) | (value->val2 >> 4);
-        DBGLOG("kbrdblight", "LKSB update %d", tval);
-        tval = tval / 16;
+    uint16_t tval = (value->val1 << 4) | (value->val2 >> 4);
+    DBGLOG("kbrdblight", "LKSB update %d", tval);
+    tval /= 16;
 
+    if (atkDevice) {
+        // Call ACPI method to adjust keyboard backlight
         OSNumber *arg = OSNumber::withNumber(tval, sizeof(tval) * 8);
         atkDevice->evaluateObject("SKBV", NULL, (OSObject**)&arg, 1);
         arg->release();
     }
+
+    OSCollectionIterator *i = OSCollectionIterator::withCollection(_hidDrivers);
+    if (i != NULL) {
+        while (AsusHIDDriver *hid = OSDynamicCast(AsusHIDDriver, i->getNextObject()))
+            hid->setKeyboardBacklight(tval);
+        i->release();
+    }
+
     delete value;
 
     // Write value to SMC

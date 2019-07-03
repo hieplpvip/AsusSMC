@@ -2,26 +2,15 @@
 //  AsusSMC.hpp
 //  AsusSMC
 //
-//  Copyright © 2018 Le Bao Hiep
+//  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
 //
 
 #ifndef _AsusSMC_hpp
 #define _AsusSMC_hpp
 
-#include <IOKit/hidsystem/ev_keymap.h>
-#include <IOKit/pwr_mgt/IOPMPowerSource.h>
-#include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOCommandGate.h>
-#include <IOKit/IOService.h>
-#include <IOKit/IONVRAM.h>
-#include <IOKit/IOLib.h>
-#include <sys/errno.h>
-#include <mach/kern_return.h>
-#include <sys/kern_control.h>
-#include <libkern/OSTypes.h>
-
-#include "karabiner_virtual_hid_device.hpp"
+#include "HIDReport.hpp"
 #include "VirtualHIDKeyboard.hpp"
 #include "KernEventServer.hpp"
 #include "KeyImplementations.hpp"
@@ -48,14 +37,6 @@ struct guid_block {
 #define ACPI_WMI_STRING      0x4    /* GUID takes & returns a string */
 #define ACPI_WMI_EVENT       0x8    /* GUID is an event */
 
-#define kIOPMPowerOff                       0
-#define kAsusSMCIOPMNumberPowerStates     2
-static IOPMPowerState powerStateArray[kAsusSMCIOPMNumberPowerStates] =
-{
-    { 1,kIOPMPowerOff,kIOPMPowerOff,kIOPMPowerOff,0,0,0,0,0,0,0,0 },
-    { 1,kIOPMPowerOn,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0 }
-};
-
 #define AsusSMCEventCode 0x8102
 
 const UInt8 NOTIFY_BRIGHTNESS_UP_MIN = 0x10;
@@ -66,9 +47,9 @@ const UInt8 NOTIFY_BRIGHTNESS_DOWN_MAX = 0x2F;
 
 #define kDeliverNotifications "RM,deliverNotifications"
 enum {
-    kKeyboardSetTouchStatus = iokit_vendor_specific_msg(100),        // set disable/enable touchpad (data is bool*)
-    kKeyboardGetTouchStatus = iokit_vendor_specific_msg(101),        // get disable/enable touchpad (data is bool*)
-    kKeyboardKeyPressTime = iokit_vendor_specific_msg(110),          // notify of timestamp a non-modifier key was pressed (data is uint64_t*)
+    kKeyboardSetTouchStatus = iokit_vendor_specific_msg(100), // set disable/enable touchpad (data is bool*)
+    kKeyboardGetTouchStatus = iokit_vendor_specific_msg(101), // get disable/enable touchpad (data is bool*)
+    kKeyboardKeyPressTime = iokit_vendor_specific_msg(110),   // notify of timestamp a non-modifier key was pressed (data is uint64_t*)
 };
 
 enum {
@@ -78,15 +59,7 @@ enum {
     kevTouchpad = 4,
 };
 
-enum ReportType {
-    none = 0,
-    keyboard_input = 1,
-    consumer_input = 2,
-    apple_vendor_top_case_input = 3,
-    apple_vendor_keyboard_input = 4,
-};
-
-class EXPORT AsusSMC : public IOService {
+class AsusSMC : public IOService {
     OSDeclareDefaultStructors(AsusSMC)
 
     /**
@@ -99,19 +72,18 @@ class EXPORT AsusSMC : public IOService {
     };
 
 public:
-    virtual IOReturn message(UInt32 type, IOService *provider, void *argument) override;
+    bool init(OSDictionary *dictionary = 0) override;
+    bool start(IOService *provider) override;
+    void stop(IOService *provider) override;
+    IOService *probe(IOService *provider, SInt32 *score) override;
+    IOReturn message(UInt32 type, IOService *provider, void *argument) override;
 
-    // standard IOKit methods
-    virtual bool init(OSDictionary *dictionary = 0) override;
-    virtual bool start(IOService *provider) override;
-    virtual void stop(IOService *provider) override;
-    virtual IOService *probe(IOService *provider, SInt32 *score) override;
-    
-    //power management events
-    virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService *policyMaker) override;
+    void letSleep();
+    void toggleAirplaneMode();
+    void toggleTouchpad();
+    void displayOff();
 
 protected:
-
     OSDictionary *properties {nullptr};
 
     /**
@@ -164,8 +136,8 @@ protected:
      */
     VirtualHIDKeyboard *_virtualKBrd {nullptr};
 
-    karabiner_virtual_hid_device::hid_report::keyboard_input kbreport;
-    karabiner_virtual_hid_device::hid_report::apple_vendor_top_case_input tcreport;
+    consumer_input csmrreport;
+    apple_vendor_top_case_input tcreport;
 
     /**
      *  Touchpad enabled status
@@ -237,7 +209,7 @@ protected:
      */
     IOReturn postKeyboardInputReport(const void *report, uint32_t reportSize);
 
-    void dispatchKBReport(int code, int loop = 1);
+    void dispatchCSMRReport(int code, int loop = 1);
     void dispatchTCReport(int code, int loop = 1);
 
     /**
@@ -250,7 +222,12 @@ protected:
     void notificationHandlerGated(IOService *newService, IONotifier *notifier);
     bool notificationHandler(void *refCon, IOService *newService, IONotifier *notifier);
     void dispatchMessageGated(int *message, void *data);
-    void dispatchMessage(int message, void* data);
+    void dispatchMessage(int message, void *data);
+
+    /**
+     *  HID drivers
+     */
+    OSSet *_hidDrivers {nullptr};
 
     /**
      *  Register ourself as a VirtualSMC plugin
@@ -293,7 +270,7 @@ private:
      */
     void wmi_wdg2reg(struct guid_block *g, OSArray *array, OSArray *dataArray);
 
-    OSDictionary * readDataBlock(char *str);
+    OSDictionary *readDataBlock(char *str);
 
     /**
      *  Parse the _WDG method for the GUID data blocks

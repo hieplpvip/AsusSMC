@@ -23,7 +23,7 @@
 		<key>AsusSMC</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
-			<string>com.hieplpvip.${PRODUCT_NAME:rfc1034identifier}</string>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>IOClass</key>
 			<string>AsusSMC</string>
 			<key>IONameMatch</key>
@@ -42,9 +42,69 @@
 			<key>IOProviderClass</key>
 			<string>IOACPIPlatformDevice</string>
 		</dict>
+		<key>0b05_1837</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOMatchCategory</key>
+			<string>AsusHID</string>
+			<key>IOClass</key>
+			<string>AsusHIDDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+			<key>ProductID</key>
+			<integer>6199</integer>
+			<key>VendorID</key>
+			<integer>2821</integer>
+		</dict>
+		<key>0b05_1854</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOMatchCategory</key>
+			<string>AsusHID</string>
+			<key>IOClass</key>
+			<string>AsusHIDDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+			<key>ProductID</key>
+			<integer>6228</integer>
+			<key>VendorID</key>
+			<integer>2821</integer>
+		</dict>
+		<key>0b05_1866</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOMatchCategory</key>
+			<string>AsusHID</string>
+			<key>IOClass</key>
+			<string>AsusHIDDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+			<key>ProductID</key>
+			<integer>6246</integer>
+			<key>VendorID</key>
+			<integer>2821</integer>
+		</dict>
+		<key>0b05_1869</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>IOMatchCategory</key>
+			<string>AsusHID</string>
+			<key>IOClass</key>
+			<string>AsusHIDDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+			<key>ProductID</key>
+			<integer>6249</integer>
+			<key>VendorID</key>
+			<integer>2821</integer>
+		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2018 Le Bao Hiep</string>
+	<string>Copyright © 2018-2019 Le Bao Hiep. All rights reserved.</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0</string>
 	<key>OSBundleLibraries</key>
@@ -57,6 +117,8 @@
 		<string>1.2</string>
 		<key>com.apple.iokit.IOHIDSystem</key>
 		<string>2.0.0</string>
+		<key>com.apple.iokit.IOUSBHostFamily</key>
+		<string>1.0.0</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>12.0.0</string>
 		<key>com.apple.kpi.dsep</key>

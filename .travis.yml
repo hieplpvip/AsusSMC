@@ -21,6 +21,7 @@ matrix:
         tags: true
 
   - os: osx
+    osx_image: xcode10.2
     compiler: clang
 
     before_install:

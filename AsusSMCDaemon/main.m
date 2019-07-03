@@ -1,8 +1,8 @@
 //
 //  main.m
-//  AsusSMC
+//  AsusSMCDaemon
 //
-//  Copyright © 2018 Le Bao Hiep
+//  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
 //
 
 #define AsusSMCEventCode 0x8102
@@ -104,6 +104,7 @@ CGDirectDisplayID getMainDisplay() {
         CGDisplayModeRef mode = CGDisplayCopyDisplayMode(dspy);
         if (!mode)
             continue;
+        CGDisplayModeRelease(mode);
         if (CGDisplayIsMain(dspy))
             return dspy;
     }

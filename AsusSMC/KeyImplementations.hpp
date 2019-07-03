@@ -2,15 +2,15 @@
 //  KeyImplementations.hpp
 //  AsusSMC
 //
-//  Copyright © 2018 Le Bao Hiep
+//  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
 //
 
 #ifndef KeyImplementations_hpp
 #define KeyImplementations_hpp
 
-#include <libkern/libkern.h>
-#include <VirtualSMCSDK/kern_vsmcapi.hpp>
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
+#include <VirtualSMCSDK/kern_vsmcapi.hpp>
+#include "AsusHIDDriver.hpp"
 
 /**
  *  Key name definitions for VirtualSMC
@@ -95,6 +95,7 @@ struct ALSSensor {
 class SMCALSValue : public VirtualSMCValue {
     _Atomic(uint32_t) *currentLux;
     ALSForceBits *forceBits;
+
 protected:
     SMC_RESULT readAccess() override;
 
@@ -138,6 +139,8 @@ public:
 class SMCKBrdBLightValue : public VirtualSMCValue {
 protected:
     IOACPIPlatformDevice *atkDevice {nullptr};
+    OSSet *_hidDrivers {nullptr};
+
 public:
     /**
      *  Keyboard backlight brightness
@@ -151,7 +154,7 @@ public:
         uint8_t val2 {1};
     };
 
-    SMCKBrdBLightValue(IOACPIPlatformDevice *atkDevice): atkDevice(atkDevice) {}
+    SMCKBrdBLightValue(IOACPIPlatformDevice *atkDevice, OSSet *_hidDrivers): atkDevice(atkDevice), _hidDrivers(_hidDrivers) {}
 
     SMC_RESULT update(const SMC_DATA *src) override;
 };
