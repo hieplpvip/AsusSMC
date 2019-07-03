@@ -1,8 +1,6 @@
-AsusSMC
-=====================
-Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
+The MIT License (MIT)
 
-MIT License
+=====================
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
