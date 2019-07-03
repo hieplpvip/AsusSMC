@@ -34,7 +34,9 @@ bool AsusHIDDriver::start(IOService *provider) {
     }
 
     OSArray *elements = hid_interface->createMatchingElements();
-    parseCustomKeyboardElements(elements);
+    if (elements)
+        parseCustomKeyboardElements(elements);
+    OSSafeReleaseNULL(elements);
 
     hid_interface->setProperty("AsusHIDSupported", true);
     hid_device->setProperty("AsusHIDSupported", true);
@@ -53,12 +55,14 @@ bool AsusHIDDriver::start(IOService *provider) {
     //uint8_t kbd_func;
     //asus_kbd_get_functions(&kbd_func);
 
-    auto dict = propertyMatching(OSSymbol::withCString("AsusHIDHost"), kOSBooleanTrue);
+    auto key = OSSymbol::withCString("AsusHIDHost");
+    auto dict = propertyMatching(key, kOSBooleanTrue);
     _asusSMC = IOService::waitForMatchingService(dict, 5000000000); // wait for 5 secs
+    key->release();
     dict->release();
 
     if (_asusSMC/* && (kbd_func & SUPPORT_KBD_BACKLIGHT)*/) {
-        usb_interface->setProperty("SupportKeyboardBacklight", true);
+        //usb_interface->setProperty("SupportKeyboardBacklight", true);
         _asusSMC->message(kAddAsusHIDDriver, this);
         DBGLOG("hid", "Connected with AsusSMC");
     }
@@ -115,9 +119,9 @@ void AsusHIDDriver::parseCustomKeyboardElements(OSArray *elementArray) {
         if (element->getType() == kIOHIDElementTypeCollection)
             continue;
 
-        UInt32 usagePage      = element->getUsagePage();
-        UInt32 usage          = element->getUsage();
-        bool   store          = false;
+        UInt32 usagePage = element->getUsagePage();
+        UInt32 usage     = element->getUsage();
+        bool   store     = false;
 
         switch (usagePage) {
             case kHIDPage_AsusVendor:

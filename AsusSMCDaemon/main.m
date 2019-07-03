@@ -104,6 +104,7 @@ CGDirectDisplayID getMainDisplay() {
         CGDisplayModeRef mode = CGDisplayCopyDisplayMode(dspy);
         if (!mode)
             continue;
+        CGDisplayModeRelease(mode);
         if (CGDisplayIsMain(dspy))
             return dspy;
     }

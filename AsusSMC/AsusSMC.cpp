@@ -145,7 +145,8 @@ OSDictionary *AsusSMC::getDictByUUID(const char *guid) {
 
     OSDictionary *dict = NULL;
     for (UInt32 i = 0; i < array->getCount(); i++) {
-        dict = OSDynamicCast(OSDictionary, array->getObject(i));
+        if (!(dict = OSDynamicCast(OSDictionary, array->getObject(i))))
+            continue;
         OSString *uuid = OSDynamicCast(OSString, dict->getObject("UUID"));
         if (uuid->isEqualTo(guid)) {
             break;
@@ -500,8 +501,10 @@ void AsusSMC::toggleALS(bool state) {
 }
 
 int AsusSMC::checkBacklightEntry() {
-    if (IORegistryEntry::fromPath(backlightEntry))
+    if (IORegistryEntry *bkl = IORegistryEntry::fromPath(backlightEntry)) {
+        OSSafeReleaseNULL(bkl);
         return 1;
+    }
     else {
         DBGLOG("atk", "Failed to find backlight entry for %s", backlightEntry);
         return 0;
@@ -509,6 +512,10 @@ int AsusSMC::checkBacklightEntry() {
 }
 
 int AsusSMC::findBacklightEntry() {
+    // Check for previous found backlight entry
+    if (checkBacklightEntry())
+        return 1;
+
     snprintf(backlightEntry, 1000, "IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/GFX0@2/AppleIntelFramebuffer@0/display0/AppleBacklightDisplay");
     if (checkBacklightEntry())
         return 1;
@@ -561,7 +568,7 @@ void AsusSMC::readPanelBrightnessValue() {
 
     IORegistryEntry *displayDeviceEntry = IORegistryEntry::fromPath(backlightEntry);
 
-    if (displayDeviceEntry != NULL) {
+    if (displayDeviceEntry) {
         if (OSDictionary *ioDisplayParaDict = OSDynamicCast(OSDictionary, displayDeviceEntry->getProperty("IODisplayParameters"))) {
             if (OSDictionary *brightnessDict = OSDynamicCast(OSDictionary, ioDisplayParaDict->getObject("brightness"))) {
                 if (OSNumber *brightnessValue = OSDynamicCast(OSNumber, brightnessDict->getObject("value"))) {
@@ -574,6 +581,7 @@ void AsusSMC::readPanelBrightnessValue() {
         } else
             DBGLOG("atk", "Failed to find dictionary IODisplayParameters");
     }
+    OSSafeReleaseNULL(displayDeviceEntry);
 }
 
 #pragma mark -
@@ -634,7 +642,8 @@ void AsusSMC::dispatchTCReport(int code, int loop)
 #pragma mark -
 
 void AsusSMC::registerNotifications() {
-    OSDictionary *propertyMatch = propertyMatching(OSSymbol::withCString(kDeliverNotifications), kOSBooleanTrue);
+    auto *key = OSSymbol::withCString(kDeliverNotifications);
+    auto *propertyMatch = propertyMatching(key, kOSBooleanTrue);
 
     IOServiceMatchingNotificationHandler notificationHandler = OSMemberFunctionCast(IOServiceMatchingNotificationHandler, this, &AsusSMC::notificationHandler);
 
@@ -650,6 +659,7 @@ void AsusSMC::registerNotifications() {
                                                this,
                                                0, 10000);
 
+    key->release();
     propertyMatch->release();
 }
 
