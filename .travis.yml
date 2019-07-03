@@ -31,7 +31,7 @@ matrix:
       - echo "cacert=\"$HOME/cacert.pem\"" > ~/.curlrc || exit 1
       - echo "ca_certificate=$HOME/cacert.pem" > ~/.wgetrc || exit 1
     script:
-      - echo "This script runs coverity..."
+      - curl --upload-file ./analysis-results.tgz https://transfer.sh/analysis-results.tgz
 
     addons:
       coverity_scan:
