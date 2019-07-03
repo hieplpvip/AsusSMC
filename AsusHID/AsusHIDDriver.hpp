@@ -77,19 +77,19 @@ public:
     void handleInterruptReport(AbsoluteTime timeStamp, IOMemoryDescriptor *report, IOHIDReportType reportType, UInt32 reportID) override;
     void dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePage, UInt32 usage, UInt32 value, IOOptionBits options = 0) override;
 
-    IOReturn getCtlReport(uint8_t reportID, uint8_t reportType, void* dataBuffer, uint16_t size);
-    IOReturn setCtlReport(uint8_t reportID, uint8_t reportType, void* dataBuffer, uint16_t size);
+    IOReturn getCtlReport(uint8_t reportID, uint8_t reportType, void *dataBuffer, uint16_t size);
+    IOReturn setCtlReport(uint8_t reportID, uint8_t reportType, void *dataBuffer, uint16_t size);
 
     void setKeyboardBacklight(uint8_t val);
 
 private:
     IOService *_asusSMC {nullptr};
-    IOHIDInterface* hid_interface {nullptr};
-    IOHIDDevice* hid_device {nullptr};
-    IOUSBHostInterface* usb_interface {nullptr};
+    IOHIDInterface *hid_interface {nullptr};
+    IOHIDDevice *hid_device {nullptr};
+    IOUSBHostInterface *usb_interface {nullptr};
 
     OSArray *customKeyboardElements {nullptr};
-    void parseCustomKeyboardElements(OSArray* elementArray);
+    void parseCustomKeyboardElements(OSArray *elementArray);
 
     // Ported from hid-asus driver
     void asus_kbd_init();

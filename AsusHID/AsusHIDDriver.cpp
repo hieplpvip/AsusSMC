@@ -85,7 +85,7 @@ void AsusHIDDriver::stop(IOService *provider) {
     super::stop(provider);
 }
 
-IOReturn AsusHIDDriver::getCtlReport(uint8_t reportID, uint8_t reportType, void* dataBuffer, uint16_t size) {
+IOReturn AsusHIDDriver::getCtlReport(uint8_t reportID, uint8_t reportType, void *dataBuffer, uint16_t size) {
     StandardUSB::DeviceRequest devReq = {
         .bmRequestType = kHIDRqGetReport,
         .bRequest = makeDeviceRequestbmRequestType(kRequestDirectionIn, kRequestTypeClass, kRequestRecipientInterface),
@@ -96,7 +96,7 @@ IOReturn AsusHIDDriver::getCtlReport(uint8_t reportID, uint8_t reportType, void*
     return (usb_interface) ? usb_interface->deviceRequest(devReq, dataBuffer, NULL) : kIOReturnError;
 }
 
-IOReturn AsusHIDDriver::setCtlReport(uint8_t reportID, uint8_t reportType, void* dataBuffer, uint16_t size) {
+IOReturn AsusHIDDriver::setCtlReport(uint8_t reportID, uint8_t reportType, void *dataBuffer, uint16_t size) {
     StandardUSB::DeviceRequest devReq = {
         .bmRequestType = kHIDRqSetReport,
         .bRequest = makeDeviceRequestbmRequestType(kRequestDirectionOut, kRequestTypeClass, kRequestRecipientInterface),
@@ -166,9 +166,9 @@ void AsusHIDDriver::handleInterruptReport(AbsoluteTime timeStamp, IOMemoryDescri
     DBGLOG("hid", "handleInterruptReport reportLength=%d reportType=%d reportID=%d", report->getLength(), reportType, reportID);
     UInt32 index, count;
     for (index = 0, count = customKeyboardElements->getCount(); index < count; index++) {
-        IOHIDElement * element;
-        AbsoluteTime   elementTimeStamp;
-        UInt32         usagePage, usage, value, preValue;
+        IOHIDElement *element;
+        AbsoluteTime  elementTimeStamp;
+        UInt32        usagePage, usage, value, preValue;
 
         element = OSDynamicCast(IOHIDElement, customKeyboardElements->getObject(index));
         if (!element || element->getReportID() != reportID)

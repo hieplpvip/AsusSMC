@@ -222,7 +222,7 @@ protected:
     void notificationHandlerGated(IOService *newService, IONotifier *notifier);
     bool notificationHandler(void *refCon, IOService *newService, IONotifier *notifier);
     void dispatchMessageGated(int *message, void *data);
-    void dispatchMessage(int message, void* data);
+    void dispatchMessage(int message, void *data);
 
     /**
      *  HID drivers
@@ -270,7 +270,7 @@ private:
      */
     void wmi_wdg2reg(struct guid_block *g, OSArray *array, OSArray *dataArray);
 
-    OSDictionary * readDataBlock(char *str);
+    OSDictionary *readDataBlock(char *str);
 
     /**
      *  Parse the _WDG method for the GUID data blocks
