@@ -483,9 +483,9 @@ void AsusSMC::checkATK() {
         SYSLOG("atk", "ALS has been turned on at boot");
     } else {
         hasALSensor = false;
+        setProperty("IsALSSupported", false);
         DBGLOG("atk", "ALS sensor not found");
     }
-    setProperty("IsALSSupported", hasALSensor);
 }
 
 void AsusSMC::toggleALS(bool state) {
