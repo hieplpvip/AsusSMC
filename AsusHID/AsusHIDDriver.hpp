@@ -8,12 +8,14 @@
 #ifndef AsusHIDDriver_hpp
 #define AsusHIDDriver_hpp
 
+#include <IOKit/usb/IOUSBHostHIDDevice.h>
 #include <IOKit/hid/IOHIDDevice.h>
 #include <IOKit/hidevent/IOHIDEventDriver.h>
 #include <VirtualSMCSDK/kern_vsmcapi.hpp>
 
 #define FEATURE_KBD_REPORT_ID 0x5a
 #define FEATURE_KBD_REPORT_SIZE 16
+#define SUPPORT_KBD_BACKLIGHT 1
 
 #define AbsoluteTime_to_scalar(x)    (*(uint64_t *)(x))
 #define CMP_ABSOLUTETIME(t1, t2)                 \
@@ -75,12 +77,16 @@ public:
     virtual void handleInterruptReport(AbsoluteTime timeStamp, IOMemoryDescriptor *report, IOHIDReportType reportType, UInt32 reportID) override;
     virtual void dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePage, UInt32 usage, UInt32 value, IOOptionBits options = 0) override;
 
+    IOReturn getCtlReport(uint8_t reportID, uint8_t reportType, void* dataBuffer, uint16_t size);
+    IOReturn setCtlReport(uint8_t reportID, uint8_t reportType, void* dataBuffer, uint16_t size);
+
     void setKeyboardBacklight(uint8_t val);
 
 private:
     IOService *_asusSMC {nullptr};
-    IOHIDDevice* hid_device {nullptr};
     IOHIDInterface* hid_interface {nullptr};
+    IOHIDDevice* hid_device {nullptr};
+    IOUSBHostInterface* usb_interface {nullptr};
 
     OSArray *customKeyboardElements {nullptr};
     void parseCustomKeyboardElements(OSArray* elementArray);
@@ -88,6 +94,6 @@ private:
     // Ported from hid-asus driver
     void asus_kbd_init();
     void asus_kbd_backlight_set(uint8_t val);
-    void asus_kbd_get_functions(unsigned char *kbd_func);
+    void asus_kbd_get_functions(uint8_t *kbd_func);
 };
 #endif /* AsusHIDDriver_hpp */
