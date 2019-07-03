@@ -9,7 +9,7 @@
 #include <VirtualSMCSDK/kern_vsmcapi.hpp>
 
 bool KernEventServer::setVendorID(const char *vendorCode) {
-    if(KERN_SUCCESS != kev_vendor_code_find(vendorCode, &vendorID)) {
+    if (KERN_SUCCESS != kev_vendor_code_find(vendorCode, &vendorID)) {
         DBGLOG("kevserver", "setVendorID error");
         return false;
     }
@@ -51,7 +51,7 @@ bool KernEventServer::sendMessage(int type, int x, int y) {
     kEventMsg.dv[2].data_length = sizeof(int);
     kEventMsg.dv[2].data_ptr = &y;
 
-    if(KERN_SUCCESS != kev_msg_post(&kEventMsg)) {
+    if (KERN_SUCCESS != kev_msg_post(&kEventMsg)) {
         DBGLOG("kevserver", "sendMessage error\n");
         return false;
     }

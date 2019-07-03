@@ -60,11 +60,11 @@ OSString *AsusSMC::flagsToStr(UInt8 flags) {
             pos += strlen(pos);
             DBGLOG("guid", "WMI EVENT");
         }
-        //suppress the last trailing space
+        // suppress the last trailing space
         str[strlen(str)] = 0;
-    }
-    else
+    } else {
         str[0] = 0;
+    }
     return (OSString::withCString(str));
 }
 
@@ -76,9 +76,9 @@ void AsusSMC::wmi_wdg2reg(struct guid_block *g, OSArray *array, OSArray *dataArr
     wmi_data2Str(g->guid, guid_string);
 
     dict->setObject("UUID", OSString::withCString(guid_string));
-    if (g->flags & ACPI_WMI_EVENT)
+    if (g->flags & ACPI_WMI_EVENT) {
         dict->setObject("notify_value", OSNumber::withNumber(g->notify_id, 8));
-    else {
+    } else {
         snprintf(object_id_string, 3, "%c%c", g->object_id[0], g->object_id[1]);
         dict->setObject("object_id", OSString::withCString(object_id_string));
     }
@@ -469,8 +469,7 @@ void AsusSMC::checkATK() {
     if (atkDevice->validateObject("SKBV") == kIOReturnSuccess) {
         SYSLOG("atk", "Keyboard backlight is supported");
         hasKeybrdBLight = true;
-    }
-    else {
+    } else {
         hasKeybrdBLight = false;
         DBGLOG("atk", "Keyboard backlight is not supported");
     }
@@ -504,8 +503,7 @@ int AsusSMC::checkBacklightEntry() {
     if (IORegistryEntry *bkl = IORegistryEntry::fromPath(backlightEntry)) {
         OSSafeReleaseNULL(bkl);
         return 1;
-    }
-    else {
+    } else {
         DBGLOG("atk", "Failed to find backlight entry for %s", backlightEntry);
         return 0;
     }
@@ -574,12 +572,15 @@ void AsusSMC::readPanelBrightnessValue() {
                 if (OSNumber *brightnessValue = OSDynamicCast(OSNumber, brightnessDict->getObject("value"))) {
                     panelBrightnessLevel = brightnessValue->unsigned32BitValue() / 64;
                     DBGLOG("atk", "Panel brightness level: %d", panelBrightnessLevel);
-                } else
+                } else {
                     DBGLOG("atk", "Failed to read brightness value");
-            } else
+                }
+            } else {
                 DBGLOG("atk", "Failed to find dictionary brightness");
-        } else
+            }
+        } else {
             DBGLOG("atk", "Failed to find dictionary IODisplayParameters");
+        }
     }
     OSSafeReleaseNULL(displayDeviceEntry);
 }
@@ -594,8 +595,9 @@ void AsusSMC::initVirtualKeyboard() {
     if (!_virtualKBrd || !_virtualKBrd->init() || !_virtualKBrd->attach(this) || !_virtualKBrd->start(this)) {
         OSSafeReleaseNULL(_virtualKBrd);
         SYSLOG("virtkbrd", "Failed to init VirtualHIDKeyboard");
-    } else
+    } else {
         _virtualKBrd->setCountryCode(0);
+    }
 }
 
 IOReturn AsusSMC::postKeyboardInputReport(const void *report, uint32_t reportSize) {
@@ -615,8 +617,7 @@ IOReturn AsusSMC::postKeyboardInputReport(const void *report, uint32_t reportSiz
     return result;
 }
 
-void AsusSMC::dispatchCSMRReport(int code, int loop)
-{
+void AsusSMC::dispatchCSMRReport(int code, int loop) {
     DBGLOG("atk", "Dispatched key %d(0x%x), loop %d time(s)", code, code, loop);
     while (loop--) {
         csmrreport.keys.insert(code);
@@ -626,8 +627,7 @@ void AsusSMC::dispatchCSMRReport(int code, int loop)
     }
 }
 
-void AsusSMC::dispatchTCReport(int code, int loop)
-{
+void AsusSMC::dispatchTCReport(int code, int loop) {
     DBGLOG("atk", "Dispatched key %d(0x%x), loop %d time(s)", code, code, loop);
     while (loop--) {
         tcreport.keys.insert(code);

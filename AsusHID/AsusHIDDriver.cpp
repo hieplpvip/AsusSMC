@@ -86,8 +86,7 @@ void AsusHIDDriver::stop(IOService *provider) {
 }
 
 IOReturn AsusHIDDriver::getCtlReport(uint8_t reportID, uint8_t reportType, void* dataBuffer, uint16_t size) {
-    StandardUSB::DeviceRequest devReq =
-    {
+    StandardUSB::DeviceRequest devReq = {
         .bmRequestType = kHIDRqGetReport,
         .bRequest = makeDeviceRequestbmRequestType(kRequestDirectionIn, kRequestTypeClass, kRequestRecipientInterface),
         .wValue = (uint16_t)((reportType << 8) | reportID),
@@ -98,8 +97,7 @@ IOReturn AsusHIDDriver::getCtlReport(uint8_t reportID, uint8_t reportType, void*
 }
 
 IOReturn AsusHIDDriver::setCtlReport(uint8_t reportID, uint8_t reportType, void* dataBuffer, uint16_t size) {
-    StandardUSB::DeviceRequest devReq =
-    {
+    StandardUSB::DeviceRequest devReq = {
         .bmRequestType = kHIDRqSetReport,
         .bRequest = makeDeviceRequestbmRequestType(kRequestDirectionOut, kRequestTypeClass, kRequestRecipientInterface),
         .wValue = (uint16_t)((reportType << 8) | reportID),
@@ -112,7 +110,7 @@ IOReturn AsusHIDDriver::setCtlReport(uint8_t reportID, uint8_t reportType, void*
 void AsusHIDDriver::parseCustomKeyboardElements(OSArray *elementArray) {
     customKeyboardElements = OSArray::withCapacity(4);
     UInt32 count, index;
-    for (index = 0, count = elementArray->getCount(); index < count; index++ ) {
+    for (index = 0, count = elementArray->getCount(); index < count; index++) {
         IOHIDElement *element = OSDynamicCast(IOHIDElement, elementArray->getObject(index));
         if (!element || element->getUsage() == 0)
             continue;

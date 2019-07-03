@@ -72,19 +72,18 @@ class AsusSMC : public IOService {
     };
 
 public:
-    virtual IOReturn message(UInt32 type, IOService *provider, void *argument) override;
-
-    virtual bool init(OSDictionary *dictionary = 0) override;
-    virtual bool start(IOService *provider) override;
-    virtual void stop(IOService *provider) override;
-    virtual IOService *probe(IOService *provider, SInt32 *score) override;
+    bool init(OSDictionary *dictionary = 0) override;
+    bool start(IOService *provider) override;
+    void stop(IOService *provider) override;
+    IOService *probe(IOService *provider, SInt32 *score) override;
+    IOReturn message(UInt32 type, IOService *provider, void *argument) override;
 
     void letSleep();
     void toggleAirplaneMode();
     void toggleTouchpad();
     void displayOff();
-protected:
 
+protected:
     OSDictionary *properties {nullptr};
 
     /**

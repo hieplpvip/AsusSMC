@@ -72,10 +72,10 @@ class AsusHIDDriver : public IOHIDEventDriver {
     OSDeclareDefaultStructors(AsusHIDDriver)
 
 public:
-    virtual bool start(IOService *provider) override;
-    virtual void stop(IOService *provider) override;
-    virtual void handleInterruptReport(AbsoluteTime timeStamp, IOMemoryDescriptor *report, IOHIDReportType reportType, UInt32 reportID) override;
-    virtual void dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePage, UInt32 usage, UInt32 value, IOOptionBits options = 0) override;
+    bool start(IOService *provider) override;
+    void stop(IOService *provider) override;
+    void handleInterruptReport(AbsoluteTime timeStamp, IOMemoryDescriptor *report, IOHIDReportType reportType, UInt32 reportID) override;
+    void dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePage, UInt32 usage, UInt32 value, IOOptionBits options = 0) override;
 
     IOReturn getCtlReport(uint8_t reportID, uint8_t reportType, void* dataBuffer, uint16_t size);
     IOReturn setCtlReport(uint8_t reportID, uint8_t reportType, void* dataBuffer, uint16_t size);

@@ -10,7 +10,7 @@ public:
         public:
             keys(void) : keys_{} {}
 
-            const uint8_t (&get_raw_value(void) const)[32] {
+            const uint8_t(&get_raw_value(void) const)[32] {
                 return keys_;
             }
 

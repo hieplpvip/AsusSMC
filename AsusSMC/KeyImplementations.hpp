@@ -8,9 +8,9 @@
 #ifndef KeyImplementations_hpp
 #define KeyImplementations_hpp
 
-#include "AsusHIDDriver.hpp"
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include <VirtualSMCSDK/kern_vsmcapi.hpp>
+#include "AsusHIDDriver.hpp"
 
 /**
  *  Key name definitions for VirtualSMC
@@ -95,6 +95,7 @@ struct ALSSensor {
 class SMCALSValue : public VirtualSMCValue {
     _Atomic(uint32_t) *currentLux;
     ALSForceBits *forceBits;
+
 protected:
     SMC_RESULT readAccess() override;
 
@@ -139,6 +140,7 @@ class SMCKBrdBLightValue : public VirtualSMCValue {
 protected:
     IOACPIPlatformDevice *atkDevice {nullptr};
     OSSet *_hidDrivers {nullptr};
+
 public:
     /**
      *  Keyboard backlight brightness
