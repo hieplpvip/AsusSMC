@@ -22,23 +22,10 @@ bool AsusHIDDriver::start(IOService *provider) {
     if (!hid_interface)
         return false;
 
-    hid_device = OSDynamicCast(IOHIDDevice, hid_interface->getParentEntry(gIOServicePlane));
-    if (!hid_device)
-        return false;
-
-    usb_interface = OSDynamicCast(IOUSBHostInterface, hid_device->getParentEntry(gIOServicePlane));
-    if (usb_interface) {
-        usb_interface->setProperty("AsusHIDSupported", true);
-        setProperty("USBInterfaceAvailable", true);
-    }
-
     OSArray *elements = hid_interface->createMatchingElements();
-    if (elements)
-        parseCustomKeyboardElements(elements);
+    if (elements) parseCustomKeyboardElements(elements);
     OSSafeReleaseNULL(elements);
 
-    hid_interface->setProperty("AsusHIDSupported", true);
-    hid_device->setProperty("AsusHIDSupported", true);
     setProperty("AsusHIDSupported", true);
     setProperty("Copyright", "Copyright © 2018-2019 Le Bao Hiep. All rights reserved.");
 
@@ -50,64 +37,36 @@ bool AsusHIDDriver::start(IOService *provider) {
     setProperty("AsusSMC-Build", "Release");
 #endif
 
-    /*
-    asus_kbd_init();
-    uint8_t kbd_func;
-    asus_kbd_get_functions(&kbd_func);
-    */
-
     auto key = OSSymbol::withCString("AsusHIDHost");
     auto dict = propertyMatching(key, kOSBooleanTrue);
     _asusSMC = IOService::waitForMatchingService(dict, 5000000000); // wait for 5 secs
     key->release();
     dict->release();
 
-    /*
+    asus_kbd_init();
+    asus_kbd_get_functions(&kbd_func);
+
     if (_asusSMC && (kbd_func & SUPPORT_KBD_BACKLIGHT)) {
-        usb_interface->setProperty("SupportKeyboardBacklight", true);
+        setProperty("KeyboardBacklightSupported", true);
         _asusSMC->message(kAddAsusHIDDriver, this);
         DBGLOG("hid", "Connected with AsusSMC");
     }
-    */
+
     return true;
 }
 
 void AsusHIDDriver::stop(IOService *provider) {
     DBGLOG("hid", "stop is called");
 
-    if (_asusSMC) {
+    if (_asusSMC && (kbd_func & SUPPORT_KBD_BACKLIGHT)) {
         _asusSMC->message(kDelAsusHIDDriver, this);
         DBGLOG("hid", "Disconnected with AsusSMC");
     }
     OSSafeReleaseNULL(_asusSMC);
 
     hid_interface = nullptr;
-    hid_device = nullptr;
-    usb_interface = nullptr;
 
     super::stop(provider);
-}
-
-IOReturn AsusHIDDriver::getCtlReport(uint8_t reportID, uint8_t reportType, void *dataBuffer, uint16_t size) {
-    StandardUSB::DeviceRequest devReq = {
-        .bmRequestType = kHIDRqGetReport,
-        .bRequest = makeDeviceRequestbmRequestType(kRequestDirectionIn, kRequestTypeClass, kRequestRecipientInterface),
-        .wValue = (uint16_t)((reportType << 8) | reportID),
-        .wIndex = usb_interface->getInterfaceDescriptor()->bInterfaceNumber,
-        .wLength = size
-    };
-    return (usb_interface) ? usb_interface->deviceRequest(devReq, dataBuffer, NULL) : kIOReturnError;
-}
-
-IOReturn AsusHIDDriver::setCtlReport(uint8_t reportID, uint8_t reportType, void *dataBuffer, uint16_t size) {
-    StandardUSB::DeviceRequest devReq = {
-        .bmRequestType = kHIDRqSetReport,
-        .bRequest = makeDeviceRequestbmRequestType(kRequestDirectionOut, kRequestTypeClass, kRequestRecipientInterface),
-        .wValue = (uint16_t)((reportType << 8) | reportID),
-        .wIndex = usb_interface->getInterfaceDescriptor()->bInterfaceNumber,
-        .wLength = size
-    };
-    return (usb_interface) ? usb_interface->deviceRequest(devReq, dataBuffer, NULL) : kIOReturnError;
 }
 
 void AsusHIDDriver::parseCustomKeyboardElements(OSArray *elementArray) {
@@ -208,7 +167,6 @@ void AsusHIDDriver::dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePa
                 usagePage = kHIDPage_AppleVendorTopCase;
                 usage = kHIDUsage_AV_TopCase_BrightnessUp;
                 break;
-            /*
             case kHIDUsage_AsusVendor_IlluminationUp:
                 usagePage = kHIDPage_AppleVendorTopCase;
                 usage = kHIDUsage_AV_TopCase_IlluminationUp;
@@ -217,7 +175,6 @@ void AsusHIDDriver::dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePa
                 usagePage = kHIDPage_AppleVendorTopCase;
                 usage = kHIDUsage_AV_TopCase_IlluminationDown;
                 break;
-            */
             case kHIDUsage_AsusVendor_Sleep:
                 if (value && _asusSMC) _asusSMC->message(kSleep, this);
                 return;
@@ -259,33 +216,38 @@ void AsusHIDDriver::setKeyboardBacklight(uint8_t val) {
 }
 
 #pragma mark -
-#pragma mark HID functions ported from Linux
+#pragma mark Ported from hid-asus.c
 #pragma mark -
 
 void AsusHIDDriver::asus_kbd_init() {
-    uint8_t buf[] = { 0x5a, 0x41, 0x53, 0x55, 0x53, 0x20, 0x54,
-        0x65, 0x63, 0x68, 0x2e, 0x49, 0x6e, 0x63, 0x2e, 0x00 };
-    setCtlReport(FEATURE_KBD_REPORT_ID, kIOHIDReportTypeFeature, buf, sizeof(buf));
+    uint8_t buf[] = { KBD_FEATURE_REPORT_ID, 0x41, 0x53, 0x55, 0x53, 0x20, 0x54, 0x65, 0x63, 0x68, 0x2e, 0x49, 0x6e, 0x63, 0x2e, 0x00 };
+    OSData* dat = OSData::withBytes(buf, KBD_FEATURE_REPORT_SIZE);
+    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(dat->getBytesNoCopy(0, KBD_FEATURE_REPORT_SIZE), dat->getLength(), kIODirectionInOut);
+    hid_interface->setReport(report, kIOHIDReportTypeFeature, KBD_FEATURE_REPORT_ID);
+    dat->release();
+    report->release();
 }
 
 void AsusHIDDriver::asus_kbd_backlight_set(uint8_t val) {
     DBGLOG("hid", "asus_kbd_backlight_set val=%d", val);
-    uint8_t buf[] = { 0x5a, 0xba, 0xc5, 0xc4, 0x00 };
+    uint8_t buf[] = { KBD_FEATURE_REPORT_ID, 0xba, 0xc5, 0xc4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
     buf[4] = val;
-    IOReturn res = setCtlReport(FEATURE_KBD_REPORT_ID, kIOHIDReportTypeFeature, buf, sizeof(buf));
-    if (res == kIOReturnSuccess)
-        DBGLOG("hid", "asus_kbd_backlight_set succeeded %d", res);
-    else
-        DBGLOG("hid", "asus_kbd_backlight_set failed %d", res);
+    OSData* dat = OSData::withBytes(buf, KBD_FEATURE_REPORT_SIZE);
+    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(dat->getBytesNoCopy(0, KBD_FEATURE_REPORT_SIZE), dat->getLength(), kIODirectionInOut);
+    hid_interface->setReport(report, kIOHIDReportTypeFeature, KBD_FEATURE_REPORT_ID);
+    dat->release();
+    report->release();
 }
 
 void AsusHIDDriver::asus_kbd_get_functions(uint8_t *kbd_func) {
-    uint8_t buf[] = { 0x5a, 0x05, 0x20, 0x31, 0x00, 0x08 };
-    setCtlReport(FEATURE_KBD_REPORT_ID, kIOHIDReportTypeFeature, buf, sizeof(buf));
-
-    uint8_t *readbuf = (uint8_t *)IOMalloc(FEATURE_KBD_REPORT_SIZE);
-    bzero(readbuf, FEATURE_KBD_REPORT_SIZE);
-    getCtlReport(FEATURE_KBD_REPORT_ID, kIOHIDReportTypeFeature, buf, sizeof(buf));
+    uint8_t buf[] = { KBD_FEATURE_REPORT_ID, 0x05, 0x20, 0x31, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    OSData* dat = OSData::withBytes(buf, KBD_FEATURE_REPORT_SIZE);
+    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(dat->getBytesNoCopy(0, KBD_FEATURE_REPORT_SIZE), dat->getLength(), kIODirectionInOut);
+    hid_interface->setReport(report, kIOHIDReportTypeFeature, KBD_FEATURE_REPORT_ID);
+    hid_interface->getReport(report, kIOHIDReportTypeFeature, KBD_FEATURE_REPORT_ID);
+    uint8_t readbuf[KBD_FEATURE_REPORT_SIZE] = {};
+    report->readBytes(0, &readbuf, KBD_FEATURE_REPORT_SIZE);
     *kbd_func = readbuf[6];
-    IOFree(readbuf, FEATURE_KBD_REPORT_SIZE);
+    dat->release();
+    report->release();
 }
