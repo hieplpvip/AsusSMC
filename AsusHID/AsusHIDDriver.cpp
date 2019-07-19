@@ -37,7 +37,7 @@ bool AsusHIDDriver::start(IOService *provider) {
     setProperty("AsusSMC-Build", "Release");
 #endif
 
-    auto key = OSSymbol::withCString("AsusHIDHost");
+    auto key = OSSymbol::withCString("AsusSMCCore");
     auto dict = propertyMatching(key, kOSBooleanTrue);
     _asusSMC = IOService::waitForMatchingService(dict, 5000000000); // wait for 5 secs
     key->release();
@@ -46,26 +46,13 @@ bool AsusHIDDriver::start(IOService *provider) {
     asus_kbd_init();
     asus_kbd_get_functions(&kbd_func);
 
-    if (_asusSMC && (kbd_func & SUPPORT_KBD_BACKLIGHT)) {
-        setProperty("KeyboardBacklightSupported", true);
-        _asusSMC->message(kAddAsusHIDDriver, this);
-        DBGLOG("hid", "Connected with AsusSMC");
-    }
-
     return true;
 }
 
 void AsusHIDDriver::stop(IOService *provider) {
     DBGLOG("hid", "stop is called");
-
-    if (_asusSMC && (kbd_func & SUPPORT_KBD_BACKLIGHT)) {
-        _asusSMC->message(kDelAsusHIDDriver, this);
-        DBGLOG("hid", "Disconnected with AsusSMC");
-    }
     OSSafeReleaseNULL(_asusSMC);
-
     hid_interface = nullptr;
-
     super::stop(provider);
 }
 
@@ -168,13 +155,15 @@ void AsusHIDDriver::dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePa
                 usage = kHIDUsage_AV_TopCase_BrightnessUp;
                 break;
             case kHIDUsage_AsusVendor_IlluminationUp:
-                usagePage = kHIDPage_AppleVendorTopCase;
-                usage = kHIDUsage_AV_TopCase_IlluminationUp;
-                break;
+                curKBLevels++;
+                if (curKBLevels > 3) curKBLevels = 3;
+                asus_kbd_backlight_set(curKBLevels);
+                return;
             case kHIDUsage_AsusVendor_IlluminationDown:
-                usagePage = kHIDPage_AppleVendorTopCase;
-                usage = kHIDUsage_AV_TopCase_IlluminationDown;
-                break;
+                curKBLevels--;
+                if (curKBLevels < 0) curKBLevels = 0;
+                asus_kbd_backlight_set(curKBLevels);
+                return;
             case kHIDUsage_AsusVendor_Sleep:
                 if (value && _asusSMC) _asusSMC->message(kSleep, this);
                 return;
@@ -209,10 +198,6 @@ void AsusHIDDriver::dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePa
         }
     }
     super::dispatchKeyboardEvent(timeStamp, usagePage, usage, value, options);
-}
-
-void AsusHIDDriver::setKeyboardBacklight(uint8_t val) {
-    asus_kbd_backlight_set(val / 64);
 }
 
 #pragma mark -

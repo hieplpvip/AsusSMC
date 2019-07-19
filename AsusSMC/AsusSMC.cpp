@@ -165,7 +165,6 @@ OSDefineMetaClassAndStructors(AsusSMC, IOService)
 
 bool AsusSMC::init(OSDictionary *dict) {
     _notificationServices = OSSet::withCapacity(1);
-    _hidDrivers = OSSet::withCapacity(1);
 
     kev.setVendorID("com.hieplpvip");
     kev.setEventCode(AsusSMCEventCode);
@@ -246,7 +245,7 @@ bool AsusSMC::start(IOService *provider) {
 
     workloop->addEventSource(command_gate);
 
-    setProperty("AsusHIDHost", true);
+    setProperty("AsusSMCCore", true);
     setProperty("IsTouchpadEnabled", true);
     setProperty("Copyright", "Copyright © 2018-2019 Le Bao Hiep. All rights reserved.");
 
@@ -279,10 +278,6 @@ void AsusSMC::stop(IOService *provider) {
     OSSafeReleaseNULL(_publishNotify);
     OSSafeReleaseNULL(_terminateNotify);
     OSSafeReleaseNULL(_notificationServices);
-
-    _hidDrivers->flushCollection();
-    OSSafeReleaseNULL(_hidDrivers);
-
     OSSafeReleaseNULL(_virtualKBrd);
 
     super::stop(provider);
@@ -306,15 +301,6 @@ IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
                 arg->release();
                 handleMessage(res);
             }
-            break;
-        case kAddAsusHIDDriver:
-            DBGLOG("atk", "Connected with HID driver");
-            setProperty("HIDKeyboardExist", true);
-            _hidDrivers->setObject(provider);
-            break;
-        case kDelAsusHIDDriver:
-            DBGLOG("atk", "Disconnected with HID driver");
-            _hidDrivers->removeObject(provider);
             break;
         case kSleep:
             letSleep();
@@ -722,7 +708,7 @@ void AsusSMC::registerVSMC() {
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
 
     VirtualSMCAPI::addKey(KeyLKSB, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&lkb), sizeof(lkb), SmcKeyTypeLkb, new SMCKBrdBLightValue(atkDevice, _hidDrivers),
+        reinterpret_cast<const SMC_DATA *>(&lkb), sizeof(lkb), SmcKeyTypeLkb, new SMCKBrdBLightValue(atkDevice),
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
 
     VirtualSMCAPI::addKey(KeyLKSS, vsmcPlugin.data, VirtualSMCAPI::valueWithData(

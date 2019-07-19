@@ -34,6 +34,7 @@ A VirtualSMC plugin provides native support for ALS, keyboard backlight and Fn k
 - [EMlyDinEsHMG](https://osxlatitude.com/profile/7370-emlydinesh/) for [AsusNBFnKeys source code](https://github.com/EMlyDinEsHMG/AsusNBFnKeys)
 - [Objective-See](https://objective-see.com) for [kernel-userspace communication](https://objective-see.com/blog/blog_0x0B.html)
 - [Karabiner-Elements](https://github.com/tekezo/Karabiner-Elements) for VirtualHIDKeyboard
+- [williambj1](https://github.com/williambj1) for testing HID support
 
 ## [Donate me](https://paypal.me/lebhiep)
 Any donation is highly appreciated!
