@@ -128,6 +128,7 @@
 		4C4FE6C22156AA810074AD08 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		4CAE3C5122C43E5600FCA35D /* AsusHIDDriver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AsusHIDDriver.cpp; sourceTree = "<group>"; };
 		4CAE3C5222C43E5600FCA35D /* AsusHIDDriver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AsusHIDDriver.hpp; sourceTree = "<group>"; };
+		4CDDD8C822E899F700CC38F4 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -164,6 +165,7 @@
 				4C4FE6222156A1690074AD08 /* Products */,
 				4C4FE6B42156A4A20074AD08 /* Frameworks */,
 				4C4FE6C22156AA810074AD08 /* README.md */,
+				4CDDD8C822E899F700CC38F4 /* CHANGELOG.md */,
 				4C27D2BF218B647F0089409B /* LICENSE.md */,
 				4C4FE6282156A1690074AD08 /* Info.plist */,
 				4C32363D215901DF00700256 /* package.tool */,
