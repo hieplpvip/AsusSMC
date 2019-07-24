@@ -12,3 +12,11 @@ Method (SKBV, 1, NotSerialized)\n
     Return (Arg0)\n
 }\n
 end;
+
+into method label KBLD code_regex ATKD.IANE\s+\(\w+\) replace_matched begin
+ATKD.IANE (0xC5)
+end;
+
+into method label KBLU code_regex ATKD.IANE\s+\(\w+\) replace_matched begin
+ATKD.IANE (0xC4)
+end;
