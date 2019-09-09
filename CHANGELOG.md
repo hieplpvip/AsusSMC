@@ -2,6 +2,7 @@ AsusSMC Changelog
 =======================
 #### v1.2.0
 - Added support for USB HID keyboards found on ROG models
+- Unified release archive names
 
 #### v1.1.1
 - Fixed memory leaks
