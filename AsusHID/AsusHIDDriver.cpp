@@ -155,14 +155,16 @@ void AsusHIDDriver::dispatchKeyboardEvent(AbsoluteTime timeStamp, UInt32 usagePa
                 usage = kHIDUsage_AV_TopCase_BrightnessUp;
                 break;
             case kHIDUsage_AsusVendor_IlluminationUp:
-                curKBLevels++;
-                if (curKBLevels > 3) curKBLevels = 3;
-                asus_kbd_backlight_set(curKBLevels);
+                if (curKBLevels < 3) {
+                    curKBLevels++;
+                    asus_kbd_backlight_set(curKBLevels);
+                }
                 return;
             case kHIDUsage_AsusVendor_IlluminationDown:
-                curKBLevels--;
-                if (curKBLevels < 0) curKBLevels = 0;
-                asus_kbd_backlight_set(curKBLevels);
+                if (curKBLevels > 0) {
+                    curKBLevels--;
+                    asus_kbd_backlight_set(curKBLevels);
+                }
                 return;
             case kHIDUsage_AsusVendor_Sleep:
                 if (value && _asusSMC) _asusSMC->message(kSleep, this);

@@ -44,7 +44,7 @@ private:
     IOService *_asusSMC {nullptr};
     IOHIDInterface *hid_interface {nullptr};
 
-    uint8_t kbd_func;
+    uint8_t kbd_func = 0;
     uint8_t curKBLevels = 0;
 
     OSArray *customKeyboardElements {nullptr};
