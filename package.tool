@@ -15,5 +15,5 @@ fi
 cp "${SRCROOT}/AsusSMCDaemon/com.hieplpvip.AsusSMCDaemon.plist" ./ || exit 1
 cp "${SRCROOT}/AsusSMCDaemon/install_daemon.sh" ./ || exit 1
 
-archive="${MODULE_VERSION}.$(echo $CONFIGURATION | tr /a-z/ /A-Z/).zip"
+archive="AsusSMC-${MODULE_VERSION}-$(echo $CONFIGURATION | tr /a-z/ /A-Z/).zip"
 zip -qry -FS ../"${archive}" * || exit 1

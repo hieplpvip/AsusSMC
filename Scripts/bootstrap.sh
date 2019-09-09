@@ -141,7 +141,7 @@ install_lilu_sdk() {
     return 1
   fi
 
-  local file="${vers}.DEBUG.zip"
+  local file="Lilu-${vers}-DEBUG.zip"
 
   echo "-> Downloading prebuilt debug version ${file}..."
 
@@ -237,7 +237,7 @@ install_vsmc_sdk() {
     return 1
   fi
 
-  local file="${vers}.DEBUG.zip"
+  local file="VirtualSMC-${vers}-DEBUG.zip"
 
   echo "-> Downloading prebuilt debug version ${file}..."
 
