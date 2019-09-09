@@ -90,35 +90,12 @@ OSStatus MDSendAppleEventToSystemProcess(AEEventID eventToSendID) {
     return status;
 }
 
-CGDirectDisplayID getMainDisplay() {
-    CGDirectDisplayID display[kMaxDisplays];
-    CGDisplayCount numDisplays;
-    CGDisplayErr err;
-    err = CGGetOnlineDisplayList(kMaxDisplays, display, &numDisplays);
-    if (err != CGDisplayNoErr) {
-        printf("cannot get list of displays (error %d)\n", err);
-        return 0;
-    }
-    for (CGDisplayCount i = 0; i < numDisplays; ++i) {
-        CGDirectDisplayID dspy = display[i];
-        CGDisplayModeRef mode = CGDisplayCopyDisplayMode(dspy);
-        if (!mode)
-            continue;
-        CGDisplayModeRelease(mode);
-        if (CGDisplayIsMain(dspy))
-            return dspy;
-    }
-    return 0;
-}
-
 void showBezelServices(BSGraphic image, float filled) {
-    //CGDirectDisplayID currentDisplayId = getMainDisplay();
     CGDirectDisplayID currentDisplayId = [NSScreen.mainScreen.deviceDescription [@"NSScreenNumber"] unsignedIntValue];
     _BSDoGraphicWithMeterAndTimeout(currentDisplayId, image, 0x0, filled, 1);
 }
 
 void showOSD(OSDGraphic image, int filled, int total) {
-    //CGDirectDisplayID currentDisplayId = getMainDisplay();
     CGDirectDisplayID currentDisplayId = [NSScreen.mainScreen.deviceDescription [@"NSScreenNumber"] unsignedIntValue];
     [[NSClassFromString(@"OSDManager") sharedManager] showImage:image onDisplayID:currentDisplayId priority:OSDPriorityDefault msecUntilFade:1000 filledChiclets:filled totalChiclets:total locked:NO];
 }

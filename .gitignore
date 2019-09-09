@@ -1,7 +1,12 @@
 .DS_Store
-build
+DerivedData
 Lilu.kext
 VirtualSMC.kext
-AsusSMC.xcodeproj/xcuserdata/
-AsusSMC.xcodeproj/xcshareddata/
-AsusSMC.xcodeproj/project.xcworkspace/
+xcuserdata
+xcshareddata
+project.xcworkspace
+build
+.idea
+.vscode
+.svace-dir
+cov-int

@@ -102,7 +102,7 @@ protected:
     /**
      *  Current lux value obtained from ACPI
      */
-    _Atomic(uint32_t) currentLux;
+    _Atomic(uint32_t) currentLux = ATOMIC_VAR_INIT(0);
 
     /**
      *  Supported ALS bits

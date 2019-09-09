@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		4C17428122C85E6E00469B7E /* HIDUsageTables.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C17428022C85E6E00469B7E /* HIDUsageTables.h */; };
 		4C3236382158FFBE00700256 /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FE6892156A3610074AD08 /* libkmod.a */; };
+		4C4FCB282326880C0010505E /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FCB272326880C0010505E /* CoreServices.framework */; };
+		4C4FCB2A232688390010505E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FCB29232688390010505E /* AppKit.framework */; };
 		4C4FE6252156A1690074AD08 /* AsusSMC.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6242156A1690074AD08 /* AsusSMC.hpp */; };
 		4C4FE6272156A1690074AD08 /* AsusSMC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6262156A1690074AD08 /* AsusSMC.cpp */; };
 		4C4FE6A02156A3AD0074AD08 /* KernEventServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE69E2156A3AD0074AD08 /* KernEventServer.cpp */; };
@@ -59,6 +61,8 @@
 		4C27D2BF218B647F0089409B /* LICENSE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LICENSE.md; sourceTree = "<group>"; };
 		4C32363D215901DF00700256 /* package.tool */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = package.tool; sourceTree = "<group>"; };
 		4C32364A2159051A00700256 /* install_daemon.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install_daemon.sh; sourceTree = "<group>"; };
+		4C4FCB272326880C0010505E /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
+		4C4FCB29232688390010505E /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		4C4FE6212156A1690074AD08 /* AsusSMC.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AsusSMC.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C4FE6242156A1690074AD08 /* AsusSMC.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AsusSMC.hpp; sourceTree = "<group>"; };
 		4C4FE6262156A1690074AD08 /* AsusSMC.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AsusSMC.cpp; sourceTree = "<group>"; };
@@ -144,6 +148,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4C4FCB2A232688390010505E /* AppKit.framework in Frameworks */,
+				4C4FCB282326880C0010505E /* CoreServices.framework in Frameworks */,
 				4C4FE6B82156A4A70074AD08 /* CoreWLAN.framework in Frameworks */,
 				4C4FE6B62156A4A20074AD08 /* IOBluetooth.framework in Frameworks */,
 			);
@@ -340,6 +346,8 @@
 		4C4FE6B42156A4A20074AD08 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4C4FCB29232688390010505E /* AppKit.framework */,
+				4C4FCB272326880C0010505E /* CoreServices.framework */,
 				4C4FE6B72156A4A70074AD08 /* CoreWLAN.framework */,
 				4C4FE6B52156A4A20074AD08 /* IOBluetooth.framework */,
 			);
@@ -558,7 +566,6 @@
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
@@ -616,7 +623,6 @@
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;

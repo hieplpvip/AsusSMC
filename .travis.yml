@@ -3,6 +3,8 @@ language: cpp
 matrix:
   include:
   - os: osx
+    name: "Build"
+    osx_image: xcode10.2
     compiler: clang
 
     script:
@@ -21,6 +23,7 @@ matrix:
         tags: true
 
   - os: osx
+    name: "Analyze Coverity"
     osx_image: xcode10.2
     compiler: clang
 
@@ -31,7 +34,7 @@ matrix:
       - echo "cacert=\"$HOME/cacert.pem\"" > ~/.curlrc || exit 1
       - echo "ca_certificate=$HOME/cacert.pem" > ~/.wgetrc || exit 1
     script:
-      - curl --upload-file ./analysis-results.tgz https://transfer.sh/analysis-results.tgz
+      - echo "This script runs coverity..."
 
     addons:
       coverity_scan:
