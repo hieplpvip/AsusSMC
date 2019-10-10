@@ -9,8 +9,9 @@ matrix:
 
     script:
       - src=$(/usr/bin/curl -Lfs https://raw.githubusercontent.com/hieplpvip/AsusSMC/master/Scripts/bootstrap.sh) && eval "$src" || exit 1
-      - xcodebuild -target Package -configuration Debug
-      - xcodebuild -target Package -configuration Release
+      - curl -L https://github.com/alexey-lysiuk/macos-sdk/releases/download/10.12/MacOSX10.12.tar.bz2 -o /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.tar.bz2 && tar -xjf /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.tar.bz2 -C /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
+      - xcodebuild -target Package -configuration Debug -sdk macosx10.12
+      - xcodebuild -target Package -configuration Release -sdk macosx10.12
 
     deploy:
       provider: releases
