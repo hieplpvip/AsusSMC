@@ -450,7 +450,7 @@
 		4C4FE6182156A1690074AD08 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1000;
+				LastUpgradeCheck = 1110;
 				ORGANIZATIONNAME = "Le Bao Hiep";
 				TargetAttributes = {
 					4C3236422159049600700256 = {
@@ -535,7 +535,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CODE_SIGN_STYLE = Automatic;
 				DEBUGGING_SYMBOLS = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -550,7 +549,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CODE_SIGN_STYLE = Automatic;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -668,6 +666,7 @@
 		4C4FE62C2156A1690074AD08 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1.2.0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -698,6 +697,7 @@
 		4C4FE62D2156A1690074AD08 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1.2.0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -728,8 +728,7 @@
 		4C4FE6B22156A4730074AD08 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 2KGA95769D;
+				CODE_SIGN_IDENTITY = "-";
 				INFOPLIST_FILE = AsusSMCDaemon/com.hieplpvip.AsusSMCDaemon.plist;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -738,8 +737,7 @@
 		4C4FE6B32156A4730074AD08 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 2KGA95769D;
+				CODE_SIGN_IDENTITY = "-";
 				INFOPLIST_FILE = AsusSMCDaemon/com.hieplpvip.AsusSMCDaemon.plist;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
