@@ -10,6 +10,7 @@
 
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOCommandGate.h>
+#include <IOKit/IONVRAM.h>
 #include "HIDReport.hpp"
 #include "HIDUsageTables.h"
 #include "VirtualHIDKeyboard.hpp"
@@ -39,6 +40,8 @@ struct guid_block {
 #define ACPI_WMI_EVENT       0x8    /* GUID is an event */
 
 #define AsusSMCEventCode 0x8102
+
+#define kAsusKeyboardBacklight "asus-keyboard-backlight"
 
 const UInt8 NOTIFY_BRIGHTNESS_UP_MIN = 0x10;
 const UInt8 NOTIFY_BRIGHTNESS_UP_MAX = 0x1F;
@@ -149,6 +152,15 @@ protected:
      *  Keyboard backlight availability
      */
     bool hasKeybrdBLight {false};
+
+    uint16_t kbl_level = 0;
+
+    /**
+     *  Workaround for Catalina
+     */
+    void setKBLLevel(uint16_t val, bool badge = false);
+    void saveKBBacklightToNVRAM(uint16_t val);
+    uint16_t readKBBacklightFromNVRAM();
 
     /**
      *  Direct ACPI messaging support

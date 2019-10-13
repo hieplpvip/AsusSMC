@@ -246,6 +246,11 @@ bool AsusSMC::start(IOService *provider) {
 
     workloop->addEventSource(command_gate);
 
+    if (version_major > 18) {
+        kbl_level = readKBBacklightFromNVRAM();
+        setKBLLevel(kbl_level);
+    }
+
     setProperty("AsusSMCCore", true);
     setProperty("IsTouchpadEnabled", true);
     setProperty("Copyright", "Copyright © 2018-2019 Le Bao Hiep. All rights reserved.");
@@ -405,11 +410,17 @@ void AsusSMC::handleMessage(int code) {
             break;
 
         case 0xC5: // Keyboard Backlight Down
-            if (hasKeybrdBLight) dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationDown);
+            if (hasKeybrdBLight) {
+                if (version_major <= 18) dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationDown);
+                else if (kbl_level > 0) setKBLLevel(--kbl_level, true);
+            }
             break;
 
         case 0xC4: // Keyboard Backlight Up
-            if (hasKeybrdBLight) dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationUp);
+            if (hasKeybrdBLight) {
+                if (version_major <= 18) dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationUp);
+                else if (kbl_level < 16) setKBLLevel(++kbl_level, true);
+            }
             break;
 
         default:
@@ -421,6 +432,57 @@ void AsusSMC::handleMessage(int code) {
     }
 
     DBGLOG("atk", "Received key %d(0x%x)", code, code);
+}
+
+void AsusSMC::saveKBBacklightToNVRAM(uint16_t val) {
+    if (IORegistryEntry* nvram = OSDynamicCast(IORegistryEntry, fromPath("/options", gIODTPlane))) {
+        if (const OSSymbol* symbol = OSSymbol::withCString(kAsusKeyboardBacklight)) {
+            if (OSData* number = OSData::withBytes(&val, sizeof(val))) {
+                if (!nvram->setProperty(symbol, number)) DBGLOG("atk", "nvram->setProperty failed");
+                number->release();
+            }
+            symbol->release();
+        }
+        nvram->release();
+    }
+}
+
+uint16_t AsusSMC::readKBBacklightFromNVRAM() {
+    uint16_t val = 16;
+
+    OSDictionary* matching = serviceMatching("IODTNVRAM");
+    IORegistryEntry* nvram = waitForMatchingService(matching, 5000000000); // wait for 5 secs
+    matching->release();
+
+    if (!nvram) SYSLOG("atk", "NVRAM not available");
+    else {
+        // need to serialize as getProperty on nvram does not work
+        if (OSSerialize* serial = OSSerialize::withCapacity(0)) {
+            nvram->serializeProperties(serial);
+            if (OSDictionary* props = OSDynamicCast(OSDictionary, OSUnserializeXML(serial->text()))) {
+                if (OSData* number = OSDynamicCast(OSData, props->getObject(kAsusKeyboardBacklight))) {
+                    unsigned l = number->getLength();
+                    if (l <= sizeof(val)) memcpy(&val, number->getBytesNoCopy(), l);
+                    DBGLOG("atk", "Keyboard backlight value from NVRAM: %d", val);
+                } else {
+                    SYSLOG("atk", "Keyboard backlight value not found in NVRAM");
+                }
+                props->release();
+            }
+            serial->release();
+        }
+        nvram->release();
+    }
+    return val;
+}
+
+void AsusSMC::setKBLLevel(uint16_t val, bool badge) {
+    if (badge) kev.sendMessage(kevKeyboardBacklight, val, 16);
+    saveKBBacklightToNVRAM(val);
+    val = min(val * 16, 255);
+    OSNumber *arg = OSNumber::withNumber(val, sizeof(val) * 8);
+    atkDevice->evaluateObject("SKBV", NULL, (OSObject**)&arg, 1);
+    arg->release();
 }
 
 void AsusSMC::letSleep() {
