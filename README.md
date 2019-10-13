@@ -15,7 +15,7 @@ A VirtualSMC plugin provides native support for ALS, keyboard backlight and Fn k
 #### Features
 - Full Fn keys support (Note: Trackpad disabling only works with VoodooI2C)
 - Native ALS support
-- Native keyboard backlight support (16 levels, smooth transition, auto adjusting, auto turning off)
+- Native keyboard backlight support (16 levels, smooth transition, auto adjusting, auto turning off) (Mojave and below only)
 
 #### Requirements
 - Asus laptop with ATK device
