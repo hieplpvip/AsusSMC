@@ -8,7 +8,7 @@
 	<string>com.hieplpvip.AsusSMCDaemon</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/bin/AsusSMCDaemon</string>
+		<string>/usr/local/bin/AsusSMCDaemon</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
