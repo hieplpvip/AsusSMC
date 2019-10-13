@@ -165,6 +165,7 @@ OSDefineMetaClassAndStructors(AsusSMC, IOService)
 
 bool AsusSMC::init(OSDictionary *dict) {
     _notificationServices = OSSet::withCapacity(1);
+    _hidDrivers = OSSet::withCapacity(1);
 
     kev.setVendorID("com.hieplpvip");
     kev.setEventCode(AsusSMCEventCode);
@@ -272,6 +273,9 @@ void AsusSMC::stop(IOService *provider) {
     OSSafeReleaseNULL(poller);
     OSSafeReleaseNULL(command_gate);
 
+    _hidDrivers->flushCollection();
+    OSSafeReleaseNULL(_hidDrivers);
+
     _publishNotify->remove();
     _terminateNotify->remove();
     _notificationServices->flushCollection();
@@ -301,6 +305,15 @@ IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
                 arg->release();
                 handleMessage(res);
             }
+            break;
+        case kAddAsusHIDDriver:
+            DBGLOG("atk", "Connected with HID driver");
+            setProperty("HIDKeyboardExist", true);
+            _hidDrivers->setObject(provider);
+            break;
+        case kDelAsusHIDDriver:
+            DBGLOG("atk", "Disconnected with HID driver");
+            _hidDrivers->removeObject(provider);
             break;
         case kSleep:
             letSleep();
@@ -708,7 +721,7 @@ void AsusSMC::registerVSMC() {
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
 
     VirtualSMCAPI::addKey(KeyLKSB, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&lkb), sizeof(lkb), SmcKeyTypeLkb, new SMCKBrdBLightValue(atkDevice),
+        reinterpret_cast<const SMC_DATA *>(&lkb), sizeof(lkb), SmcKeyTypeLkb, new SMCKBrdBLightValue(atkDevice, _hidDrivers),
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
 
     VirtualSMCAPI::addKey(KeyLKSS, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
