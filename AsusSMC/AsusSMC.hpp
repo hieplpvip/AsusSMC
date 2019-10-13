@@ -54,13 +54,6 @@ enum {
 };
 
 enum {
-    kSleep = iokit_vendor_specific_msg(201),
-    kAirplaneMode = iokit_vendor_specific_msg(202),
-    kTouchpadToggle = iokit_vendor_specific_msg(203),
-    kDisplayOff = iokit_vendor_specific_msg(204),
-};
-
-enum {
     kevKeyboardBacklight = 1,
     kevAirplaneMode = 2,
     kevSleep = 3,
@@ -231,6 +224,11 @@ protected:
     bool notificationHandler(void *refCon, IOService *newService, IONotifier *notifier);
     void dispatchMessageGated(int *message, void *data);
     void dispatchMessage(int message, void *data);
+
+    /**
+     *  HID drivers
+     */
+    OSSet *_hidDrivers {nullptr};
 
     /**
      *  Register ourself as a VirtualSMC plugin
