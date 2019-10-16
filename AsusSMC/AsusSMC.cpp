@@ -412,14 +412,20 @@ void AsusSMC::handleMessage(int code) {
         case 0xC5: // Keyboard Backlight Down
             if (hasKeybrdBLight) {
                 if (version_major <= 18) dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationDown);
-                else if (kbl_level > 0) setKBLLevel(--kbl_level, true);
+                else {
+                    if (kbl_level > 0) --kbl_level;
+                    setKBLLevel(kbl_level, true);
+                }
             }
             break;
 
         case 0xC4: // Keyboard Backlight Up
             if (hasKeybrdBLight) {
                 if (version_major <= 18) dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationUp);
-                else if (kbl_level < 16) setKBLLevel(++kbl_level, true);
+                else {
+                    if (kbl_level < 16) ++kbl_level;
+                    setKBLLevel(kbl_level, true);
+                }
             }
             break;
 
