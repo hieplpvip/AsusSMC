@@ -11,7 +11,9 @@ sudo rm /Library/LaunchAgents/com.hieplpvip.AsusFnKeysDaemon.plist 2>/dev/null
 sudo launchctl unload /Library/LaunchAgents/com.hieplpvip.AsusSMCDaemon.plist 2>/dev/null
 sudo rm /usr/bin/AsusSMCDaemon 2>/dev/null
 
-sudo cp $DIR/AsusSMCDaemon /usr/local/bin
+sudo mkdir -p /usr/local/bin/
+sudo chmod -R 755 /usr/local/bin/
+sudo cp $DIR/AsusSMCDaemon /usr/local/bin/
 sudo chmod 755 /usr/local/bin/AsusSMCDaemon
 sudo chown root:wheel /usr/local/bin/AsusSMCDaemon
 
