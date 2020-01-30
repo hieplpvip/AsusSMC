@@ -1,5 +1,11 @@
 AsusSMC Changelog
 =======================
+
+#### v1.2.1
+- Built with Lilu 1.4.1 and VirtualSMC 1.1.0
+- Update `OSBundleLibraries`
+- Fix `install_daemon.sh`  to make it work when folder `/usr/local/bin` does not exist
+
 #### v1.2.0
 - Added support for USB HID keyboards found on ROG models
 - Optimized code
