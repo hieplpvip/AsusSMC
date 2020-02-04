@@ -158,7 +158,7 @@ protected:
     /**
      *  Workaround for Catalina
      */
-    void setKBLLevel(uint16_t val, bool badge = false);
+    void setKBLLevel(uint16_t val, bool badge = false, bool save = true);
     void saveKBBacklightToNVRAM(uint16_t val);
     uint16_t readKBBacklightFromNVRAM();
 

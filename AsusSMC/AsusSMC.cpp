@@ -175,7 +175,11 @@ static IOPMPowerState powerStates[kNumberOfStates] = {
 IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService * whatDevice) {
 
     if (powerStateOrdinal == kIOPMPowerOff) {
-        DBGLOG("atk", "Going to Sleep");
+        DBGLOG("atk", "Power off");
+        /**
+        *  Sleep, shutdown or reboot detected
+        */
+        setKBLLevel(kbl_level, false, false);
     } else {
         DBGLOG("atk", "Waking up");
         kbl_level = readKBBacklightFromNVRAM();
@@ -516,9 +520,9 @@ uint16_t AsusSMC::readKBBacklightFromNVRAM() {
     return val;
 }
 
-void AsusSMC::setKBLLevel(uint16_t val, bool badge) {
+void AsusSMC::setKBLLevel(uint16_t val, bool badge, bool save) {
     if (badge) kev.sendMessage(kevKeyboardBacklight, val, 16);
-    saveKBBacklightToNVRAM(val);
+    if (save) saveKBBacklightToNVRAM(val);
     val = min(val * 16, 255);
     OSNumber *arg = OSNumber::withNumber(val, sizeof(val) * 8);
     atkDevice->evaluateObject("SKBV", NULL, (OSObject**)&arg, 1);
