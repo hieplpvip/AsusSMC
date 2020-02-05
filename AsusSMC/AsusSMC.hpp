@@ -158,7 +158,7 @@ protected:
     /**
      *  Workaround for Catalina
      */
-    void setKBLLevel(uint16_t val, bool badge = false);
+    void setKBLLevel(uint16_t val, bool badge = false, bool save = true);
     void saveKBBacklightToNVRAM(uint16_t val);
     uint16_t readKBBacklightFromNVRAM();
 
@@ -291,6 +291,10 @@ private:
     int parse_wdg(OSDictionary *dict);
 
     OSDictionary *getDictByUUID(const char *guid);
+    
+    void subscribePowerEvents(IOService *provider);
+    
+    virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
 };
 
 #endif //_AsusSMC_hpp

@@ -163,6 +163,37 @@ OSDictionary *AsusSMC::getDictByUUID(const char *guid) {
 
 OSDefineMetaClassAndStructors(AsusSMC, IOService)
 
+
+#define kIOPMPowerOff                       0
+#define kNumberOfStates                     2
+
+static IOPMPowerState powerStates[kNumberOfStates] = {
+   {1, kIOPMPowerOff, kIOPMPowerOff, kIOPMPowerOff, 0, 0, 0, 0, 0, 0, 0, 0},
+   {1, kIOPMPowerOn, kIOPMPowerOn, kIOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0}
+};
+
+IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService * whatDevice) {
+    if (powerStateOrdinal == kIOPMPowerOff) {
+        DBGLOG("atk", "Power off");
+        /**
+        *  Sleep, shutdown or reboot detected
+        */
+        setKBLLevel(0, false, false);
+    } else {
+        DBGLOG("atk", "Waking up");
+        kbl_level = readKBBacklightFromNVRAM();
+        setKBLLevel(kbl_level, false, false);
+    }
+    return kIOPMAckImplied;
+}
+
+void AsusSMC::subscribePowerEvents(IOService *provider) {
+    DBGLOG("atk", "subscribe to PM events");
+    PMinit();
+    provider->joinPMtree(this);
+    registerPowerDriver(this, powerStates, kNumberOfStates);
+}
+
 bool AsusSMC::init(OSDictionary *dict) {
     _notificationServices = OSSet::withCapacity(1);
     _hidDrivers = OSSet::withCapacity(1);
@@ -249,6 +280,7 @@ bool AsusSMC::start(IOService *provider) {
     if (version_major > 18) {
         kbl_level = readKBBacklightFromNVRAM();
         setKBLLevel(kbl_level);
+        subscribePowerEvents(provider);
     }
 
     setProperty("AsusSMCCore", true);
@@ -267,6 +299,11 @@ bool AsusSMC::start(IOService *provider) {
 
 void AsusSMC::stop(IOService *provider) {
     DBGLOG("atk", "stop is called");
+    
+    if (version_major > 18) {
+        DBGLOG("atk", "stop PM hook");
+        PMstop();
+    }
 
     if (poller)
         poller->cancelTimeout();
@@ -482,9 +519,9 @@ uint16_t AsusSMC::readKBBacklightFromNVRAM() {
     return val;
 }
 
-void AsusSMC::setKBLLevel(uint16_t val, bool badge) {
+void AsusSMC::setKBLLevel(uint16_t val, bool badge, bool save) {
     if (badge) kev.sendMessage(kevKeyboardBacklight, val, 16);
-    saveKBBacklightToNVRAM(val);
+    if (save) saveKBBacklightToNVRAM(val);
     val = min(val * 16, 255);
     OSNumber *arg = OSNumber::withNumber(val, sizeof(val) * 8);
     atkDevice->evaluateObject("SKBV", NULL, (OSObject**)&arg, 1);
