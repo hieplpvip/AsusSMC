@@ -173,17 +173,16 @@ static IOPMPowerState powerStates[kNumberOfStates] = {
 };
 
 IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService * whatDevice) {
-
     if (powerStateOrdinal == kIOPMPowerOff) {
         DBGLOG("atk", "Power off");
         /**
         *  Sleep, shutdown or reboot detected
         */
-        setKBLLevel(kbl_level, false, false);
+        setKBLLevel(0, false, false);
     } else {
         DBGLOG("atk", "Waking up");
         kbl_level = readKBBacklightFromNVRAM();
-        setKBLLevel(kbl_level);
+        setKBLLevel(kbl_level, false, false);
     }
     return kIOPMAckImplied;
 }
