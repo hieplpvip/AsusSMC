@@ -1,6 +1,9 @@
 AsusSMC Changelog
 =======================
 
+#### v1.2.2
+- Fix keyboard backlight remaining off after sleep on Catalina (thanks to @AR-CADE)
+
 #### v1.2.1
 - Built with Lilu 1.4.1 and VirtualSMC 1.1.0
 - Update `OSBundleLibraries`
