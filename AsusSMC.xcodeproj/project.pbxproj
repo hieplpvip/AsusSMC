@@ -25,17 +25,12 @@
 		4C4FE6C12156A5820074AD08 /* KeyImplementations.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */; };
 		4CAE3C5322C43E5600FCA35D /* AsusHIDDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAE3C5122C43E5600FCA35D /* AsusHIDDriver.cpp */; };
 		4CAE3C5422C43E5600FCA35D /* AsusHIDDriver.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4CAE3C5222C43E5600FCA35D /* AsusHIDDriver.hpp */; };
+		4CC5A8C2244611E600AB526E /* com.hieplpvip.AsusSMCDaemon.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C4FE6BC2156A4FB0074AD08 /* com.hieplpvip.AsusSMCDaemon.plist */; };
+		4CC5A8C3244611EA00AB526E /* install_daemon.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C32364A2159051A00700256 /* install_daemon.sh */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		4C323646215904D300700256 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C4FE6182156A1690074AD08 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4C4FE6202156A1690074AD08;
-			remoteInfo = AsusSMC;
-		};
-		4C323648215904D300700256 /* PBXContainerItemProxy */ = {
+		4C8C666224460F2D00D694EB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4C4FE6182156A1690074AD08 /* Project object */;
 			proxyType = 1;
@@ -54,12 +49,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4CC5A8C1244611D300AB526E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 16;
+			files = (
+				4CC5A8C2244611E600AB526E /* com.hieplpvip.AsusSMCDaemon.plist in CopyFiles */,
+				4CC5A8C3244611EA00AB526E /* install_daemon.sh in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		4C17428022C85E6E00469B7E /* HIDUsageTables.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDUsageTables.h; sourceTree = "<group>"; };
 		4C27D2BF218B647F0089409B /* LICENSE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LICENSE.md; sourceTree = "<group>"; };
-		4C32363D215901DF00700256 /* package.tool */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = package.tool; sourceTree = "<group>"; };
 		4C32364A2159051A00700256 /* install_daemon.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install_daemon.sh; sourceTree = "<group>"; };
 		4C4FCB272326880C0010505E /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
 		4C4FCB29232688390010505E /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -174,7 +179,6 @@
 				4CDDD8C822E899F700CC38F4 /* CHANGELOG.md */,
 				4C27D2BF218B647F0089409B /* LICENSE.md */,
 				4C4FE6282156A1690074AD08 /* Info.plist */,
-				4C32363D215901DF00700256 /* package.tool */,
 			);
 			sourceTree = "<group>";
 		};
@@ -390,24 +394,6 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLegacyTarget section */
-		4C3236422159049600700256 /* Package */ = {
-			isa = PBXLegacyTarget;
-			buildArgumentsString = "$(ACTION)";
-			buildConfigurationList = 4C3236432159049600700256 /* Build configuration list for PBXLegacyTarget "Package" */;
-			buildPhases = (
-			);
-			buildToolPath = "${SRCROOT}/package.tool";
-			dependencies = (
-				4C323647215904D300700256 /* PBXTargetDependency */,
-				4C323649215904D300700256 /* PBXTargetDependency */,
-			);
-			name = Package;
-			passBuildSettingsInEnvironment = 1;
-			productName = Package;
-		};
-/* End PBXLegacyTarget section */
-
 /* Begin PBXNativeTarget section */
 		4C4FE6202156A1690074AD08 /* AsusSMC */ = {
 			isa = PBXNativeTarget;
@@ -417,10 +403,13 @@
 				4C4FE61D2156A1690074AD08 /* Sources */,
 				4C4FE61E2156A1690074AD08 /* Frameworks */,
 				4C4FE61F2156A1690074AD08 /* Resources */,
+				4CC5A8C1244611D300AB526E /* CopyFiles */,
+				4C8C666424460F3C00D694EB /* Archive */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				4C8C666324460F2D00D694EB /* PBXTargetDependency */,
 			);
 			name = AsusSMC;
 			productName = AsusSMC;
@@ -453,9 +442,6 @@
 				LastUpgradeCheck = 1110;
 				ORGANIZATIONNAME = "Le Bao Hiep";
 				TargetAttributes = {
-					4C3236422159049600700256 = {
-						CreatedOnToolsVersion = 10.0;
-					};
 					4C4FE6202156A1690074AD08 = {
 						CreatedOnToolsVersion = 10.0;
 					};
@@ -477,7 +463,6 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				4C3236422159049600700256 /* Package */,
 				4C4FE6202156A1690074AD08 /* AsusSMC */,
 				4C4FE6AC2156A4730074AD08 /* AsusSMCDaemon */,
 			);
@@ -493,6 +478,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4C8C666424460F3C00D694EB /* Archive */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = Archive;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd \"${TARGET_BUILD_DIR}\"\n\narchive=\"${PRODUCT_NAME}-${MODULE_VERSION}-$(echo $CONFIGURATION | tr /a-z/ /A-Z/).zip\"\nrm -rf *.zip\nif [ \"$CONFIGURATION\" == \"Release\" ]; then\n  strip -x -T \"${EXECUTABLE_PATH}\" &>/dev/null || strip -x \"${EXECUTABLE_PATH}\"\nfi\nzip -qry -FS \"${archive}\" *\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		4C4FE61D2156A1690074AD08 /* Sources */ = {
@@ -518,44 +524,14 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		4C323647215904D300700256 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4C4FE6202156A1690074AD08 /* AsusSMC */;
-			targetProxy = 4C323646215904D300700256 /* PBXContainerItemProxy */;
-		};
-		4C323649215904D300700256 /* PBXTargetDependency */ = {
+		4C8C666324460F2D00D694EB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4C4FE6AC2156A4730074AD08 /* AsusSMCDaemon */;
-			targetProxy = 4C323648215904D300700256 /* PBXContainerItemProxy */;
+			targetProxy = 4C8C666224460F2D00D694EB /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		4C3236442159049600700256 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				DEBUGGING_SYMBOLS = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Debug;
-		};
-		4C3236452159049600700256 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Release;
-		};
 		4C4FE6292156A1690074AD08 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -746,15 +722,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		4C3236432159049600700256 /* Build configuration list for PBXLegacyTarget "Package" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				4C3236442159049600700256 /* Debug */,
-				4C3236452159049600700256 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		4C4FE61B2156A1690074AD08 /* Build configuration list for PBXProject "AsusSMC" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
