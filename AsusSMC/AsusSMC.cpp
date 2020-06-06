@@ -11,151 +11,6 @@ bool ADDPR(debugEnabled) = true;
 uint32_t ADDPR(debugPrintDelay) = 0;
 
 #pragma mark -
-#pragma mark WMI functions ported from Linux
-#pragma mark -
-
-int AsusSMC::wmi_data2Str(const char *in, char *out) {
-    int i;
-
-    for (i = 3; i >= 0; i--)
-        out += snprintf(out, 3, "%02X", in[i] & 0xFF);
-
-    out += snprintf(out, 2, "-");
-    out += snprintf(out, 3, "%02X", in[5] & 0xFF);
-    out += snprintf(out, 3, "%02X", in[4] & 0xFF);
-    out += snprintf(out, 2, "-");
-    out += snprintf(out, 3, "%02X", in[7] & 0xFF);
-    out += snprintf(out, 3, "%02X", in[6] & 0xFF);
-    out += snprintf(out, 2, "-");
-    out += snprintf(out, 3, "%02X", in[8] & 0xFF);
-    out += snprintf(out, 3, "%02X", in[9] & 0xFF);
-    out += snprintf(out, 2, "-");
-
-    for (i = 10; i <= 15; i++)
-        out += snprintf(out, 3, "%02X", in[i] & 0xFF);
-
-    *out = '\0';
-    return 0;
-}
-
-OSString *AsusSMC::flagsToStr(UInt8 flags) {
-    char str[80];
-    char *pos = str;
-    if (flags != 0) {
-        if (flags & ACPI_WMI_EXPENSIVE) {
-            lilu_os_strncpy(pos, "ACPI_WMI_EXPENSIVE ", 20);
-            pos += strlen(pos);
-        }
-        if (flags & ACPI_WMI_METHOD) {
-            lilu_os_strncpy(pos, "ACPI_WMI_METHOD ", 20);
-            pos += strlen(pos);
-            DBGLOG("guid", "WMI METHOD");
-        }
-        if (flags & ACPI_WMI_STRING) {
-            lilu_os_strncpy(pos, "ACPI_WMI_STRING ", 20);
-            pos += strlen(pos);
-        }
-        if (flags & ACPI_WMI_EVENT) {
-            lilu_os_strncpy(pos, "ACPI_WMI_EVENT ", 20);
-            pos += strlen(pos);
-            DBGLOG("guid", "WMI EVENT");
-        }
-        // suppress the last trailing space
-        str[strlen(str)] = 0;
-    } else {
-        str[0] = 0;
-    }
-    return (OSString::withCString(str));
-}
-
-void AsusSMC::wmi_wdg2reg(struct guid_block *g, OSArray *array, OSArray *dataArray) {
-    char guid_string[37];
-    char object_id_string[3];
-    OSDictionary *dict = OSDictionary::withCapacity(6);
-
-    wmi_data2Str(g->guid, guid_string);
-
-    dict->setObject("UUID", OSString::withCString(guid_string));
-    if (g->flags & ACPI_WMI_EVENT) {
-        dict->setObject("notify_value", OSNumber::withNumber(g->notify_id, 8));
-    } else {
-        snprintf(object_id_string, 3, "%c%c", g->object_id[0], g->object_id[1]);
-        dict->setObject("object_id", OSString::withCString(object_id_string));
-    }
-    dict->setObject("instance_count", OSNumber::withNumber(g->instance_count, 8));
-    dict->setObject("flags", OSNumber::withNumber(g->flags, 8));
-    dict->setObject("flags_str", flagsToStr(g->flags));
-    if (g->flags == 0)
-        dataArray->setObject(readDataBlock(object_id_string));
-
-    array->setObject(dict);
-}
-
-OSDictionary *AsusSMC::readDataBlock(char *str) {
-    OSDictionary *dict = OSDictionary::withCapacity(1);
-
-    char name[5];
-    snprintf(name, 5, "WQ%s", str);
-
-    OSObject *wqxx;
-    if (atkDevice->evaluateObject(name, &wqxx) != kIOReturnSuccess) {
-        SYSLOG("guid", "No object of method %s", name);
-        return dict;
-    }
-
-    OSData *data = OSDynamicCast(OSData, wqxx);
-    if (!data) {
-        SYSLOG("guid", "Cast error %s", name);
-        return dict;
-    }
-    dict->setObject(name, data);
-
-    return dict;
-}
-
-int AsusSMC::parse_wdg(OSDictionary *dict) {
-    OSObject *wdg;
-    if (atkDevice->evaluateObject("_WDG", &wdg) != kIOReturnSuccess) {
-        SYSLOG("guid", "No object of method _WDG");
-        return 0;
-    }
-
-    OSData *data = OSDynamicCast(OSData, wdg);
-    if (!data) {
-        SYSLOG("guid", "Cast error _WDG");
-        return 0;
-    }
-    UInt32 total = data->getLength() / sizeof(struct guid_block);
-    OSArray *array = OSArray::withCapacity(total);
-    OSArray *dataArray = OSArray::withCapacity(1);
-
-    for (UInt32 i = 0; i < total; i++)
-        wmi_wdg2reg((struct guid_block *) data->getBytesNoCopy(i * sizeof(struct guid_block), sizeof(struct guid_block)), array, dataArray);
-    setProperty("WDG", array);
-    setProperty("DataBlocks", dataArray);
-    data->release();
-
-    return 0;
-}
-
-OSDictionary *AsusSMC::getDictByUUID(const char *guid) {
-    OSArray *array = OSDynamicCast(OSArray, properties->getObject("WDG"));
-    if (!array)
-        return NULL;
-
-    OSDictionary *dict = NULL;
-    for (UInt32 i = 0; i < array->getCount(); i++) {
-        if (!(dict = OSDynamicCast(OSDictionary, array->getObject(i))))
-            continue;
-        OSString *uuid = OSDynamicCast(OSString, dict->getObject("UUID"));
-        if (uuid->isEqualTo(guid)) {
-            break;
-        }
-    }
-    return dict;
-}
-
-#pragma mark -
 #pragma mark IOService overloading
 #pragma mark -
 
@@ -163,21 +18,21 @@ OSDictionary *AsusSMC::getDictByUUID(const char *guid) {
 
 OSDefineMetaClassAndStructors(AsusSMC, IOService)
 
-
 #define kIOPMPowerOff                       0
 #define kNumberOfStates                     2
 
 static IOPMPowerState powerStates[kNumberOfStates] = {
-   {1, kIOPMPowerOff, kIOPMPowerOff, kIOPMPowerOff, 0, 0, 0, 0, 0, 0, 0, 0},
-   {1, kIOPMPowerOn, kIOPMPowerOn, kIOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0}
+    {1, kIOPMPowerOff, kIOPMPowerOff, kIOPMPowerOff, 0, 0, 0, 0, 0, 0, 0, 0},
+    {1, kIOPMPowerOn, kIOPMPowerOn, kIOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 
 IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService * whatDevice) {
-    if (powerStateOrdinal == kIOPMPowerOff) {
+    if (whatDevice != this) {
+        return kIOPMAckImplied;
+    }
+
+    if (powerStateOrdinal == 0) {
         DBGLOG("atk", "Power off");
-        /**
-        *  Sleep, shutdown or reboot detected
-        */
         setKBLLevel(0, false, false);
     } else {
         DBGLOG("atk", "Waking up");
@@ -250,9 +105,7 @@ bool AsusSMC::start(IOService *provider) {
     atkDevice->evaluateObject("INIT", NULL, (OSObject**)&arg, 1);
     arg->release();
 
-    SYSLOG("atk", "Found WMI Device %s", atkDevice->getName());
-
-    parse_wdg(properties);
+    SYSLOG("atk", "Found ATK Device %s", atkDevice->getName());
 
     checkATK();
 
@@ -277,7 +130,7 @@ bool AsusSMC::start(IOService *provider) {
 
     workloop->addEventSource(command_gate);
 
-    if (version_major > 18) {
+    if (version_major > 18) { // Catalina and above
         kbl_level = readKBBacklightFromNVRAM();
         setKBLLevel(kbl_level);
         subscribePowerEvents(provider);
@@ -299,8 +152,8 @@ bool AsusSMC::start(IOService *provider) {
 
 void AsusSMC::stop(IOService *provider) {
     DBGLOG("atk", "stop is called");
-    
-    if (version_major > 18) {
+
+    if (version_major > 18) { // Catalina and above
         DBGLOG("atk", "stop PM hook");
         PMstop();
     }

@@ -265,35 +265,8 @@ protected:
     bool refreshSensor(bool post);
 
 private:
-    /**
-     * wmi_data2Str - converts binary guid to ascii guid
-     *
-     */
-    int wmi_data2Str(const char *in, char *out);
-
-    /**
-     * flagsToStr - converts binary flag to ascii flag
-     *
-     */
-    OSString *flagsToStr(UInt8 flags);
-
-    /**
-     * wmi_wdg2reg - adds the WDG structure to a dictionary
-     *
-     */
-    void wmi_wdg2reg(struct guid_block *g, OSArray *array, OSArray *dataArray);
-
-    OSDictionary *readDataBlock(char *str);
-
-    /**
-     *  Parse the _WDG method for the GUID data blocks
-     */
-    int parse_wdg(OSDictionary *dict);
-
-    OSDictionary *getDictByUUID(const char *guid);
-    
     void subscribePowerEvents(IOService *provider);
-    
+
     virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
 };
 
