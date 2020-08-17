@@ -1,6 +1,9 @@
 AsusSMC Changelog
 =======================
 
+#### v1.3.0
+- Native keyboard backlight on Catalina
+
 #### v1.2.3
 - Remove unused WMI code
 - Correct usage of `powerStateOrdinal` in `setPowerState`

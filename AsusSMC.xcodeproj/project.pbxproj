@@ -15,8 +15,8 @@
 		4C4FE6272156A1690074AD08 /* AsusSMC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6262156A1690074AD08 /* AsusSMC.cpp */; };
 		4C4FE6A02156A3AD0074AD08 /* KernEventServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE69E2156A3AD0074AD08 /* KernEventServer.cpp */; };
 		4C4FE6A12156A3AD0074AD08 /* KernEventServer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE69F2156A3AD0074AD08 /* KernEventServer.hpp */; };
-		4C4FE6A62156A4340074AD08 /* VirtualHIDKeyboard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6A32156A4340074AD08 /* VirtualHIDKeyboard.cpp */; };
-		4C4FE6A72156A4340074AD08 /* VirtualHIDKeyboard.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6A42156A4340074AD08 /* VirtualHIDKeyboard.hpp */; };
+		4C4FE6A62156A4340074AD08 /* VirtualAppleKeyboard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6A32156A4340074AD08 /* VirtualAppleKeyboard.cpp */; };
+		4C4FE6A72156A4340074AD08 /* VirtualAppleKeyboard.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6A42156A4340074AD08 /* VirtualAppleKeyboard.hpp */; };
 		4C4FE6A82156A4340074AD08 /* HIDReport.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6A52156A4340074AD08 /* HIDReport.hpp */; };
 		4C4FE6B62156A4A20074AD08 /* IOBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FE6B52156A4A20074AD08 /* IOBluetooth.framework */; };
 		4C4FE6B82156A4A70074AD08 /* CoreWLAN.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FE6B72156A4A70074AD08 /* CoreWLAN.framework */; };
@@ -122,8 +122,8 @@
 		4C4FE69C2156A3700074AD08 /* AppleSmcBridge.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AppleSmcBridge.hpp; sourceTree = "<group>"; };
 		4C4FE69E2156A3AD0074AD08 /* KernEventServer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = KernEventServer.cpp; sourceTree = "<group>"; };
 		4C4FE69F2156A3AD0074AD08 /* KernEventServer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = KernEventServer.hpp; sourceTree = "<group>"; };
-		4C4FE6A32156A4340074AD08 /* VirtualHIDKeyboard.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VirtualHIDKeyboard.cpp; sourceTree = "<group>"; };
-		4C4FE6A42156A4340074AD08 /* VirtualHIDKeyboard.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = VirtualHIDKeyboard.hpp; sourceTree = "<group>"; };
+		4C4FE6A32156A4340074AD08 /* VirtualAppleKeyboard.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VirtualAppleKeyboard.cpp; sourceTree = "<group>"; };
+		4C4FE6A42156A4340074AD08 /* VirtualAppleKeyboard.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = VirtualAppleKeyboard.hpp; sourceTree = "<group>"; };
 		4C4FE6A52156A4340074AD08 /* HIDReport.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = HIDReport.hpp; sourceTree = "<group>"; };
 		4C4FE6AD2156A4730074AD08 /* AsusSMCDaemon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = AsusSMCDaemon; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C4FE6B52156A4A20074AD08 /* IOBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOBluetooth.framework; path = System/Library/Frameworks/IOBluetooth.framework; sourceTree = SDKROOT; };
@@ -171,7 +171,7 @@
 				4C4FE6AE2156A4730074AD08 /* AsusSMCDaemon */,
 				4CAE3C5022C43D2B00FCA35D /* AsusHID */,
 				4C4FE69D2156A3970074AD08 /* KernEventServer */,
-				4C4FE6A22156A4270074AD08 /* VirtualHIDKeyboard */,
+				4C4FE6A22156A4270074AD08 /* VirtualAppleKeyboard */,
 				4C4FE62E2156A2980074AD08 /* SDK */,
 				4C4FE6222156A1690074AD08 /* Products */,
 				4C4FE6B42156A4A20074AD08 /* Frameworks */,
@@ -325,14 +325,14 @@
 			path = KernEventServer;
 			sourceTree = "<group>";
 		};
-		4C4FE6A22156A4270074AD08 /* VirtualHIDKeyboard */ = {
+		4C4FE6A22156A4270074AD08 /* VirtualAppleKeyboard */ = {
 			isa = PBXGroup;
 			children = (
 				4C4FE6A52156A4340074AD08 /* HIDReport.hpp */,
-				4C4FE6A32156A4340074AD08 /* VirtualHIDKeyboard.cpp */,
-				4C4FE6A42156A4340074AD08 /* VirtualHIDKeyboard.hpp */,
+				4C4FE6A32156A4340074AD08 /* VirtualAppleKeyboard.cpp */,
+				4C4FE6A42156A4340074AD08 /* VirtualAppleKeyboard.hpp */,
 			);
-			path = VirtualHIDKeyboard;
+			path = VirtualAppleKeyboard;
 			sourceTree = "<group>";
 		};
 		4C4FE6AE2156A4730074AD08 /* AsusSMCDaemon */ = {
@@ -388,7 +388,7 @@
 				4C17428122C85E6E00469B7E /* HIDUsageTables.h in Headers */,
 				4C4FE6252156A1690074AD08 /* AsusSMC.hpp in Headers */,
 				4C4FE6C12156A5820074AD08 /* KeyImplementations.hpp in Headers */,
-				4C4FE6A72156A4340074AD08 /* VirtualHIDKeyboard.hpp in Headers */,
+				4C4FE6A72156A4340074AD08 /* VirtualAppleKeyboard.hpp in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -508,7 +508,7 @@
 				4C4FE6272156A1690074AD08 /* AsusSMC.cpp in Sources */,
 				4C4FE6C02156A5820074AD08 /* KeyImplementations.cpp in Sources */,
 				4CAE3C5322C43E5600FCA35D /* AsusHIDDriver.cpp in Sources */,
-				4C4FE6A62156A4340074AD08 /* VirtualHIDKeyboard.cpp in Sources */,
+				4C4FE6A62156A4340074AD08 /* VirtualAppleKeyboard.cpp in Sources */,
 				4C4FE6A02156A3AD0074AD08 /* KernEventServer.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -581,7 +581,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
-				MODULE_VERSION = 1.2.3;
+				MODULE_VERSION = 1.3.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -632,7 +632,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
-				MODULE_VERSION = 1.2.3;
+				MODULE_VERSION = 1.3.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -644,7 +644,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1.2.3;
+				CURRENT_PROJECT_VERSION = 1.3.0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"MODULE_VERSION=$(MODULE_VERSION)",
 					"PRODUCT_NAME=$(PRODUCT_NAME)",
@@ -662,7 +662,6 @@
 				MODULE_NAME = com.hieplpvip.AsusSMC;
 				MODULE_START = "$(PRODUCT_NAME)_kern_start";
 				MODULE_STOP = "$(PRODUCT_NAME)_kern_stop";
-				MODULE_VERSION = 1.2.3;
 				OTHER_CPLUSPLUSFLAGS = "-Wno-inconsistent-missing-override";
 				PRODUCT_BUNDLE_IDENTIFIER = com.hieplpvip.AsusSMC;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -675,7 +674,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1.2.3;
+				CURRENT_PROJECT_VERSION = 1.3.0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"MODULE_VERSION=$(MODULE_VERSION)",
 					"PRODUCT_NAME=$(PRODUCT_NAME)",
@@ -693,7 +692,6 @@
 				MODULE_NAME = com.hieplpvip.AsusSMC;
 				MODULE_START = "$(PRODUCT_NAME)_kern_start";
 				MODULE_STOP = "$(PRODUCT_NAME)_kern_stop";
-				MODULE_VERSION = 1.2.3;
 				OTHER_CPLUSPLUSFLAGS = "-Wno-inconsistent-missing-override";
 				PRODUCT_BUNDLE_IDENTIFIER = com.hieplpvip.AsusSMC;
 				PRODUCT_NAME = "$(TARGET_NAME)";

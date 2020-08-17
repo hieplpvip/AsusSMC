@@ -27,7 +27,7 @@ bool AsusHIDDriver::start(IOService *provider) {
     OSSafeReleaseNULL(elements);
 
     setProperty("AsusHIDSupported", true);
-    setProperty("Copyright", "Copyright © 2018-2019 Le Bao Hiep. All rights reserved.");
+    setProperty("Copyright", "Copyright © 2019 Le Bao Hiep. All rights reserved.");
 
     extern kmod_info_t kmod_info;
     setProperty("AsusSMC-Version", kmod_info.version);

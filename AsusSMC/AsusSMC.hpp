@@ -2,7 +2,7 @@
 //  AsusSMC.hpp
 //  AsusSMC
 //
-//  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
+//  Copyright © 2018-2020 Le Bao Hiep. All rights reserved.
 //
 
 #ifndef _AsusSMC_hpp
@@ -13,7 +13,7 @@
 #include <IOKit/IONVRAM.h>
 #include "HIDReport.hpp"
 #include "HIDUsageTables.h"
-#include "VirtualHIDKeyboard.hpp"
+#include "VirtualAppleKeyboard.hpp"
 #include "KernEventServer.hpp"
 #include "KeyImplementations.hpp"
 
@@ -138,7 +138,7 @@ protected:
     /**
      *  Virtual keyboard device
      */
-    VirtualHIDKeyboard *_virtualKBrd {nullptr};
+    VirtualAppleKeyboard *_virtualKBrd {nullptr};
 
     consumer_input csmrreport;
     apple_vendor_top_case_input tcreport;
@@ -152,15 +152,6 @@ protected:
      *  Keyboard backlight availability
      */
     bool hasKeybrdBLight {false};
-
-    uint16_t kbl_level = 0;
-
-    /**
-     *  Workaround for Catalina
-     */
-    void setKBLLevel(uint16_t val, bool badge = false, bool save = true);
-    void saveKBBacklightToNVRAM(uint16_t val);
-    uint16_t readKBBacklightFromNVRAM();
 
     /**
      *  Direct ACPI messaging support

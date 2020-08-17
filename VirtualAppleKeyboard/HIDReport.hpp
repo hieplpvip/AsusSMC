@@ -1,6 +1,6 @@
 //
 //  HIDReport.hpp
-//  VirtualHIDKeyboard
+//  VirtualAppleKeyboard
 //
 //  Copyright © 2019 Le Bao Hiep. All rights reserved.
 //
@@ -73,7 +73,7 @@ private:
 
 class __attribute__((packed)) consumer_input final {
 public:
-    consumer_input(void) : report_id_(1) {}
+    consumer_input(void) : report_id_(2) {}
     bool operator==(const consumer_input& other) const { return (memcmp(this, &other, sizeof(*this)) == 0); }
     bool operator!=(const consumer_input& other) const { return !(*this == other); }
 
@@ -86,7 +86,7 @@ public:
 
 class __attribute__((packed)) apple_vendor_top_case_input final {
 public:
-    apple_vendor_top_case_input(void) : report_id_(2) {}
+    apple_vendor_top_case_input(void) : report_id_(3) {}
     bool operator==(const apple_vendor_top_case_input& other) const { return (memcmp(this, &other, sizeof(*this)) == 0); }
     bool operator!=(const apple_vendor_top_case_input& other) const { return !(*this == other); }
 

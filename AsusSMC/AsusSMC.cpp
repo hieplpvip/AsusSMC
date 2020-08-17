@@ -2,7 +2,7 @@
 //  AsusSMC.cpp
 //  AsusSMC
 //
-//  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
+//  Copyright © 2018-2020 Le Bao Hiep. All rights reserved.
 //
 
 #include "AsusSMC.hpp"
@@ -17,37 +17,6 @@ uint32_t ADDPR(debugPrintDelay) = 0;
 #define super IOService
 
 OSDefineMetaClassAndStructors(AsusSMC, IOService)
-
-#define kIOPMPowerOff                       0
-#define kNumberOfStates                     2
-
-static IOPMPowerState powerStates[kNumberOfStates] = {
-    {1, kIOPMPowerOff, kIOPMPowerOff, kIOPMPowerOff, 0, 0, 0, 0, 0, 0, 0, 0},
-    {1, kIOPMPowerOn, kIOPMPowerOn, kIOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0}
-};
-
-IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService * whatDevice) {
-    if (whatDevice != this) {
-        return kIOPMAckImplied;
-    }
-
-    if (powerStateOrdinal == 0) {
-        DBGLOG("atk", "Power off");
-        setKBLLevel(0, false, false);
-    } else {
-        DBGLOG("atk", "Waking up");
-        kbl_level = readKBBacklightFromNVRAM();
-        setKBLLevel(kbl_level, false, false);
-    }
-    return kIOPMAckImplied;
-}
-
-void AsusSMC::subscribePowerEvents(IOService *provider) {
-    DBGLOG("atk", "subscribe to PM events");
-    PMinit();
-    provider->joinPMtree(this);
-    registerPowerDriver(this, powerStates, kNumberOfStates);
-}
 
 bool AsusSMC::init(OSDictionary *dict) {
     _notificationServices = OSSet::withCapacity(1);
@@ -130,15 +99,9 @@ bool AsusSMC::start(IOService *provider) {
 
     workloop->addEventSource(command_gate);
 
-    if (version_major > 18) { // Catalina and above
-        kbl_level = readKBBacklightFromNVRAM();
-        setKBLLevel(kbl_level);
-        subscribePowerEvents(provider);
-    }
-
     setProperty("AsusSMCCore", true);
     setProperty("IsTouchpadEnabled", true);
-    setProperty("Copyright", "Copyright © 2018-2019 Le Bao Hiep. All rights reserved.");
+    setProperty("Copyright", "Copyright © 2018-2020 Le Bao Hiep. All rights reserved.");
 
     extern kmod_info_t kmod_info;
     setProperty("AsusSMC-Version", kmod_info.version);
@@ -152,11 +115,6 @@ bool AsusSMC::start(IOService *provider) {
 
 void AsusSMC::stop(IOService *provider) {
     DBGLOG("atk", "stop is called");
-
-    if (version_major > 18) { // Catalina and above
-        DBGLOG("atk", "stop PM hook");
-        PMstop();
-    }
 
     if (poller)
         poller->cancelTimeout();
@@ -301,21 +259,13 @@ void AsusSMC::handleMessage(int code) {
 
         case 0xC5: // Keyboard Backlight Down
             if (hasKeybrdBLight) {
-                if (version_major <= 18) dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationDown);
-                else {
-                    if (kbl_level > 0) --kbl_level;
-                    setKBLLevel(kbl_level, true);
-                }
+                dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationDown);
             }
             break;
 
         case 0xC4: // Keyboard Backlight Up
             if (hasKeybrdBLight) {
-                if (version_major <= 18) dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationUp);
-                else {
-                    if (kbl_level < 16) ++kbl_level;
-                    setKBLLevel(kbl_level, true);
-                }
+                dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationUp);
             }
             break;
 
@@ -328,57 +278,6 @@ void AsusSMC::handleMessage(int code) {
     }
 
     DBGLOG("atk", "Received key %d(0x%x)", code, code);
-}
-
-void AsusSMC::saveKBBacklightToNVRAM(uint16_t val) {
-    if (IORegistryEntry* nvram = OSDynamicCast(IORegistryEntry, fromPath("/options", gIODTPlane))) {
-        if (const OSSymbol* symbol = OSSymbol::withCString(kAsusKeyboardBacklight)) {
-            if (OSData* number = OSData::withBytes(&val, sizeof(val))) {
-                if (!nvram->setProperty(symbol, number)) DBGLOG("atk", "nvram->setProperty failed");
-                number->release();
-            }
-            symbol->release();
-        }
-        nvram->release();
-    }
-}
-
-uint16_t AsusSMC::readKBBacklightFromNVRAM() {
-    uint16_t val = 16;
-
-    OSDictionary* matching = serviceMatching("IODTNVRAM");
-    IORegistryEntry* nvram = waitForMatchingService(matching, 5000000000); // wait for 5 secs
-    matching->release();
-
-    if (!nvram) SYSLOG("atk", "NVRAM not available");
-    else {
-        // need to serialize as getProperty on nvram does not work
-        if (OSSerialize* serial = OSSerialize::withCapacity(0)) {
-            nvram->serializeProperties(serial);
-            if (OSDictionary* props = OSDynamicCast(OSDictionary, OSUnserializeXML(serial->text()))) {
-                if (OSData* number = OSDynamicCast(OSData, props->getObject(kAsusKeyboardBacklight))) {
-                    unsigned l = number->getLength();
-                    if (l <= sizeof(val)) memcpy(&val, number->getBytesNoCopy(), l);
-                    DBGLOG("atk", "Keyboard backlight value from NVRAM: %d", val);
-                } else {
-                    SYSLOG("atk", "Keyboard backlight value not found in NVRAM");
-                }
-                props->release();
-            }
-            serial->release();
-        }
-        nvram->release();
-    }
-    return val;
-}
-
-void AsusSMC::setKBLLevel(uint16_t val, bool badge, bool save) {
-    if (badge) kev.sendMessage(kevKeyboardBacklight, val, 16);
-    if (save) saveKBBacklightToNVRAM(val);
-    val = min(val * 16, 255);
-    OSNumber *arg = OSNumber::withNumber(val, sizeof(val) * 8);
-    atkDevice->evaluateObject("SKBV", NULL, (OSObject**)&arg, 1);
-    arg->release();
 }
 
 void AsusSMC::letSleep() {
@@ -541,13 +440,11 @@ void AsusSMC::readPanelBrightnessValue() {
 #pragma mark -
 
 void AsusSMC::initVirtualKeyboard() {
-    _virtualKBrd = new VirtualHIDKeyboard;
+    _virtualKBrd = new VirtualAppleKeyboard;
 
     if (!_virtualKBrd || !_virtualKBrd->init() || !_virtualKBrd->attach(this) || !_virtualKBrd->start(this)) {
         OSSafeReleaseNULL(_virtualKBrd);
-        SYSLOG("virtkbrd", "Failed to init VirtualHIDKeyboard");
-    } else {
-        _virtualKBrd->setCountryCode(0);
+        SYSLOG("virtkbrd", "Failed to init VirtualAppleKeyboard");
     }
 }
 

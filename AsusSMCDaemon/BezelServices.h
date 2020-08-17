@@ -2,7 +2,7 @@
 //  BezelServices.h
 //  AsusSMCDaemon
 //
-//  Copyright © 2018-2019 Le Bao Hiep. All rights reserved.
+//  Copyright © 2018-2020 Le Bao Hiep. All rights reserved.
 //
 
 #ifndef BezelServices_h
