@@ -255,7 +255,6 @@ protected:
 private:
     void subscribePowerEvents(IOService *provider);
 
-    virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
 };
 
 #endif //_AsusSMC_hpp
