@@ -251,10 +251,6 @@ protected:
      *  @param post  post an SMC notification
      */
     bool refreshSensor(bool post);
-
-private:
-    void subscribePowerEvents(IOService *provider);
-
 };
 
 #endif //_AsusSMC_hpp
