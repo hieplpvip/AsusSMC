@@ -251,11 +251,6 @@ protected:
      *  @param post  post an SMC notification
      */
     bool refreshSensor(bool post);
-
-private:
-    void subscribePowerEvents(IOService *provider);
-
-    virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
 };
 
 #endif //_AsusSMC_hpp
