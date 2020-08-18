@@ -1,6 +1,9 @@
 AsusSMC Changelog
 =======================
 
+#### v1.3.1
+- Removed unimplemented virtual methods for kext to load correctly (thanks @Ubsefor)
+
 #### v1.3.0
 - Native keyboard backlight on Catalina
 
