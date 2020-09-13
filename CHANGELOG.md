@@ -1,6 +1,12 @@
 AsusSMC Changelog
 =======================
 
+#### v1.4.0
+- Rework keyboard backlight mechanism. Users need to repatch DSDT. More specific, the line `^^KBLV = Arg0 / 16` must be removed.
+- Rework ambient light sensor mechanism (use WMI for toggling sensor; read value directly with method `_ALI`). DSDT patch is not needed anymore.
+- Add experimental support for reading fan speed with WMI
+- Support battery charge threshold found on new laptops (charging stops at 80%). Can be disabled by turning off `Battery Health` in `Energy Saver`.
+
 #### v1.3.1
 - Removed unimplemented virtual methods for kext to load correctly (thanks @Ubsefor)
 

@@ -35,5 +35,4 @@ typedef enum {
 - (void)showImage:(OSDGraphic)image onDisplayID:(CGDirectDisplayID)display priority:(OSDPriority)priority msecUntilFade:(int)timeout filledChiclets:(int)filled totalChiclets:(int)total locked:(BOOL)locked;
 @end
 
-
 #endif /* OSD_h */

@@ -4,17 +4,14 @@
 //
 //  Copyright © 2018-2020 Le Bao Hiep. All rights reserved.
 //
+//  Ambient light sensor support is based on SMCLightSensor
 
 #ifndef KeyImplementations_hpp
 #define KeyImplementations_hpp
 
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include <VirtualSMCSDK/kern_vsmcapi.hpp>
-#include "AsusHIDDriver.hpp"
 
-/**
- *  Key name definitions for VirtualSMC
- */
 static constexpr SMC_KEY KeyAL   = SMC_MAKE_IDENTIFIER('A','L','!',' ');
 static constexpr SMC_KEY KeyALI0 = SMC_MAKE_IDENTIFIER('A','L','I','0');
 static constexpr SMC_KEY KeyALI1 = SMC_MAKE_IDENTIFIER('A','L','I','1');
@@ -25,21 +22,44 @@ static constexpr SMC_KEY KeyLKSB = SMC_MAKE_IDENTIFIER('L','K','S','B');
 static constexpr SMC_KEY KeyLKSS = SMC_MAKE_IDENTIFIER('L','K','S','S');
 static constexpr SMC_KEY KeyMSLD = SMC_MAKE_IDENTIFIER('M','S','L','D');
 
+static constexpr SMC_KEY KeyFNum = SMC_MAKE_IDENTIFIER('F','N','u','m');
+static constexpr SMC_KEY KeyF0ID = SMC_MAKE_IDENTIFIER('F','0','I','D');
+static constexpr SMC_KEY KeyF0Ac = SMC_MAKE_IDENTIFIER('F','0','A','c');
+
+static constexpr SMC_KEY KeyBDVT = SMC_MAKE_IDENTIFIER('B','D','V','T');
+
+typedef enum { FAN_PWM_TACH, FAN_RPM, PUMP_PWM, PUMP_RPM, FAN_PWM_NOTACH, EMPTY_PLACEHOLDER } FanType;
+
+typedef enum {
+    LEFT_LOWER_FRONT, CENTER_LOWER_FRONT, RIGHT_LOWER_FRONT,
+    LEFT_MID_FRONT,   CENTER_MID_FRONT,   RIGHT_MID_FRONT,
+    LEFT_UPPER_FRONT, CENTER_UPPER_FRONT, RIGHT_UPPER_FRONT,
+    LEFT_LOWER_REAR,  CENTER_LOWER_REAR,  RIGHT_LOWER_REAR,
+    LEFT_MID_REAR,    CENTER_MID_REAR,    RIGHT_MID_REAR,
+    LEFT_UPPER_REAR,  CENTER_UPPER_REAR,  RIGHT_UPPER_REAR
+} LocationType;
+
+static constexpr int32_t DiagFunctionStrLen = 12;
+
+typedef struct fanTypeDescStruct {
+    uint8_t type        {FAN_RPM};
+    uint8_t ui8Zone     {1};
+    uint8_t location    {LEFT_MID_REAR};
+    uint8_t rsvd        {0}; // padding to get us to 16 bytes
+    char    strFunction[DiagFunctionStrLen];
+} FanTypeDescStruct;
+
+template <typename T, typename Y=void *>
+using stored_pair = ppair<T, Y>;
+
+template <typename T, typename Y=void *>
+using stored_vector = evector<stored_pair<T, Y> *, stored_pair<T, Y>::deleter>;
+
+using lksbCallback = void (*)(const uint16_t &value, OSObject *consumer);
+using lksb_vector = stored_vector<lksbCallback, OSObject *>;
+
 class ALSForceBits : public VirtualSMCValue {
 public:
-    /**
-     *  Each "1" bit in gui8ALSForced indicates that a certain writable ALS
-     *  variable has been overridden (i.e., forced) by the host OS or
-     *  host diagnostics, and that variable should not be written by the SMC
-     *  again until the applicable bit is cleared in gui8ALSForced.
-     *  Currently, the used bits are:
-     *      Bit 0 protects gui16ALSScale
-     *      Bit 1 protects ui16Chan0 and ui16Chan1 of aalsvALSData
-     *      Bit 2 protects gui16ALSLux
-     *      Bit 3 protects fHighGain of aalsvALSData
-     *      Bit 4 protects gai16ALSTemp[MAX_ALS_SENSORS]
-     *  All other bits are reserved and should be cleared to 0.
-     */
     enum {
         kALSForceScale      = 1,
         kALSForceChan       = 2,
@@ -51,13 +71,7 @@ public:
     uint8_t bits() { return data[0]; }
 };
 
-/**
- *  ALSSensor structure contains sensor-specific information for this system
- */
 struct ALSSensor {
-    /**
-     *  Supported sensor types
-     */
     enum Type : uint8_t {
         NoSensor  = 0,
         BS520     = 1,
@@ -67,26 +81,9 @@ struct ALSSensor {
         Unknown7  = 7
     };
 
-    /**
-     *  Sensor type
-     */
     Type sensorType {Type::NoSensor};
-
-    /**
-     * TRUE if no lid or if sensor works with closed lid.
-     * FALSE otherwise.
-     */
     bool validWhenLidClosed {false};
-
-    /**
-     *  Possibly ID
-     */
     uint8_t unknown {0};
-
-    /**
-     * TRUE if the SIL brightness depends on this sensor's value.
-     * FALSE otherwise.
-     */
     bool controlSIL {false};
 
     ALSSensor(Type sensorType, bool validWhenLidClosed, uint8_t unknown, bool controlSIL): sensorType(sensorType), validWhenLidClosed(validWhenLidClosed), unknown(unknown), controlSIL(controlSIL) {}
@@ -100,35 +97,11 @@ protected:
     SMC_RESULT readAccess() override;
 
 public:
-    /**
-     *  Contains latest ambient light info from 1 sensor
-     */
     struct PACKED Value {
-        /**
-         *  If TRUE, data in this struct is valid.
-         */
         bool valid {false};
-
-        /**
-         *  If TRUE, ui16Chan0/1 are high-gain readings.
-         *  If FALSE, ui16Chan0/1 are low-gain readings.
-         */
         bool highGain {true};
-
-        /**
-         *  I2C channel 0 data or analog(ADC) data.
-         */
         uint16_t chan0 {0};
-
-        /**
-         *  I2C channel 1 data.
-         */
         uint16_t chan1 {0};
-
-        /**
-         * The following field only exists on systems that send ALS change notifications to the OS:
-         * Room illumination in lux, FP18.14.
-         */
         uint32_t roomLux {0};
     };
 
@@ -137,14 +110,14 @@ public:
 };
 
 class SMCKBrdBLightValue : public VirtualSMCValue {
-protected:
     IOACPIPlatformDevice *atkDevice {nullptr};
-    OSSet *_hidDrivers {nullptr};
+    lksb_vector *callbacks {nullptr};
+    IOLock *lksbLock {nullptr};
+
+protected:
+    SMC_RESULT update(const SMC_DATA *src) override;
 
 public:
-    /**
-     *  Keyboard backlight brightness
-     */
     struct PACKED lks {
         uint8_t unknown0 {0};
         uint8_t unknown1 {1};
@@ -154,9 +127,27 @@ public:
         uint8_t val2 {1};
     };
 
-    SMCKBrdBLightValue(IOACPIPlatformDevice *atkDevice, OSSet *_hidDrivers): atkDevice(atkDevice), _hidDrivers(_hidDrivers) {}
+    SMCKBrdBLightValue(IOACPIPlatformDevice *atkDevice, lksb_vector *callbacks, IOLock *lksbLock): atkDevice(atkDevice), callbacks(callbacks), lksbLock(lksbLock) {}
+};
 
+class F0Ac : public VirtualSMCValue {
+    _Atomic(uint16_t) *currentSpeed;
+
+protected:
+    SMC_RESULT readAccess() override;
+
+public:
+    F0Ac(_Atomic(uint16_t) *currentSpeed) : currentSpeed(currentSpeed) {}
+};
+
+class BDVT : public VirtualSMCValue {
+    IOService *dst {nullptr};
+
+protected:
     SMC_RESULT update(const SMC_DATA *src) override;
+
+public:
+    BDVT(IOService *dst) : dst(dst) {}
 };
 
 #endif /* KeyImplementations_hpp */

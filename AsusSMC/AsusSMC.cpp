@@ -7,52 +7,54 @@
 
 #include "AsusSMC.hpp"
 
-bool ADDPR(debugEnabled) = true;
+bool ADDPR(debugEnabled) = false;
 uint32_t ADDPR(debugPrintDelay) = 0;
 
-#pragma mark -
-#pragma mark IOService overloading
-#pragma mark -
-
 #define super IOService
-
 OSDefineMetaClassAndStructors(AsusSMC, IOService)
 
 bool AsusSMC::init(OSDictionary *dict) {
+    if (!super::init(dict)) {
+        return false;
+    }
+
     _notificationServices = OSSet::withCapacity(1);
-    _hidDrivers = OSSet::withCapacity(1);
 
     kev.setVendorID("com.hieplpvip");
     kev.setEventCode(AsusSMCEventCode);
 
     atomic_init(&currentLux, 0);
+    atomic_init(&currentFanSpeed, 0);
 
-    bool result = super::init(dict);
-    properties = dict;
+    lksbLock = IOLockAlloc();
+    if (!lksbLock) {
+        SYSLOG("lksb", "failed to allocate LKSB lock");
+        return false;
+    }
 
-    DBGLOG("atk", "AsusSMC Inited");
-    return result;
+    return true;
 }
 
 IOService *AsusSMC::probe(IOService *provider, SInt32 *score) {
-    IOService *ret = NULL;
-
-    if (!super::probe(provider, score))
-        return ret;
+    if (!super::probe(provider, score)) {
+        return NULL;
+    }
 
     IOACPIPlatformDevice *dev = OSDynamicCast(IOACPIPlatformDevice, provider);
-    if (!dev)
-        return ret;
+    if (!dev) {
+        return NULL;
+    }
 
     OSObject *obj;
     dev->evaluateObject("_UID", &obj);
 
     OSString *name = OSDynamicCast(OSString, obj);
-    if (!name)
-        return ret;
+    if (!name) {
+        return NULL;
+    }
 
+    IOService *ret = NULL;
     if (name->isEqualTo("ATK")) {
-        *score += 20;
         ret = this;
     }
     name->release();
@@ -61,30 +63,26 @@ IOService *AsusSMC::probe(IOService *provider, SInt32 *score) {
 }
 
 bool AsusSMC::start(IOService *provider) {
-    DBGLOG("atk", "start is called");
-
     if (!provider || !super::start(provider)) {
-        SYSLOG("atk", "Error loading kext");
+        SYSLOG("atk", "failed to start parent");
         return false;
     }
 
-    atkDevice = (IOACPIPlatformDevice *) provider;
+    atkDevice = (IOACPIPlatformDevice *)provider;
 
-    OSNumber *arg = OSNumber::withNumber(1, 8);
-    atkDevice->evaluateObject("INIT", NULL, (OSObject**)&arg, 1);
-    arg->release();
+    parse_WDG();
 
-    SYSLOG("atk", "Found ATK Device %s", atkDevice->getName());
+    initATKDevice();
 
-    checkATK();
+    initALSDevice();
+
+    initEC0Device();
+
+    initBattery();
 
     initVirtualKeyboard();
 
-    registerNotifications();
-
-    registerVSMC();
-
-    this->registerService(0);
+    startATKDevice();
 
     workloop = getWorkLoop();
     if (!workloop) {
@@ -94,10 +92,10 @@ bool AsusSMC::start(IOService *provider) {
     workloop->retain();
 
     command_gate = IOCommandGate::commandGate(this);
-    if (!command_gate)
+    if (!command_gate || (workloop->addEventSource(command_gate) != kIOReturnSuccess)) {
+        DBGLOG("atk", "Could not open command gate");
         return false;
-
-    workloop->addEventSource(command_gate);
+    }
 
     setProperty("AsusSMCCore", true);
     setProperty("IsTouchpadEnabled", true);
@@ -110,24 +108,29 @@ bool AsusSMC::start(IOService *provider) {
 #else
     setProperty("AsusSMC-Build", "Release");
 #endif
+
+    registerNotifications();
+
+    registerVSMC();
+
+    registerService();
+
     return true;
 }
 
 void AsusSMC::stop(IOService *provider) {
-    DBGLOG("atk", "stop is called");
-
-    if (poller)
+    if (poller) {
         poller->cancelTimeout();
-    if (workloop && poller)
+    }
+    if (workloop && poller) {
         workloop->removeEventSource(poller);
-    if (workloop && command_gate)
+    }
+    if (workloop && command_gate) {
         workloop->removeEventSource(command_gate);
+    }
     OSSafeReleaseNULL(workloop);
     OSSafeReleaseNULL(poller);
     OSSafeReleaseNULL(command_gate);
-
-    _hidDrivers->flushCollection();
-    OSSafeReleaseNULL(_hidDrivers);
 
     _publishNotify->remove();
     _terminateNotify->remove();
@@ -135,60 +138,443 @@ void AsusSMC::stop(IOService *provider) {
     OSSafeReleaseNULL(_publishNotify);
     OSSafeReleaseNULL(_terminateNotify);
     OSSafeReleaseNULL(_notificationServices);
-    OSSafeReleaseNULL(_virtualKBrd);
+
+    OSSafeReleaseNULL(kbdDevice);
+
+    IOLockFree(lksbLock);
+    LKSBCallbacks.deinit();
 
     super::stop(provider);
     return;
 }
 
-#pragma mark -
-#pragma mark AsusSMC Methods
-#pragma mark -
-
-IOReturn AsusSMC::message(UInt32 type, IOService *provider, void *argument) {
+IOReturn AsusSMC::message(uint32_t type, IOService *provider, void *argument) {
     switch (type) {
         case kIOACPIMessageDeviceNotification:
             if (directACPImessaging) {
-                handleMessage(*((UInt32 *) argument));
+                handleMessage(*((uint32_t *)argument));
             } else {
-                UInt32 event = *((UInt32 *) argument);
-                OSNumber *arg = OSNumber::withNumber(event, sizeof(event) * 8);
-                UInt32 res;
-                atkDevice->evaluateInteger("_WED", &res, (OSObject**)&arg, 1);
+                uint32_t event = *((uint32_t *)argument);
+                OSNumber *arg = OSNumber::withNumber(event, 32);
+                uint32_t res;
+                atkDevice->evaluateInteger("_WED", &res, (OSObject **)&arg, 1);
                 arg->release();
                 handleMessage(res);
             }
             break;
-        case kAddAsusHIDDriver:
+        case kHIDAdd:
             DBGLOG("atk", "Connected with HID driver");
             setProperty("HIDKeyboardExist", true);
-            _hidDrivers->setObject(provider);
+            addLKSBConsumer([](const uint16_t &value, OSObject *consumer) {
+                auto hid = OSDynamicCast(AsusHIDDriver, consumer);
+                hid->setKeyboardBacklight(value / 1024);
+            }, provider);
             break;
-        case kDelAsusHIDDriver:
+        case kHIDDelete:
             DBGLOG("atk", "Disconnected with HID driver");
-            _hidDrivers->removeObject(provider);
+            for (size_t i = 0; i < LKSBCallbacks.size(); i++) {
+                if (LKSBCallbacks[i]->second == provider) {
+                    LKSBCallbacks.erase(i);
+                    break;
+                }
+            }
             break;
-        case kSleep:
+        case kHIDSleep:
             letSleep();
             break;
-        case kAirplaneMode:
+        case kHIDAirplaneMode:
             toggleAirplaneMode();
             break;
-        case kTouchpadToggle:
+        case kHIDTouchpadToggle:
             toggleTouchpad();
             break;
-        case kDisplayOff:
+        case kHIDDisplayOff:
             displayOff();
             break;
         default:
-            DBGLOG("atk", "Unexpected message: %u Type %x Provider %s", *((UInt32 *) argument), uint(type), provider->getName());
+            DBGLOG("atk", "Unexpected message: %u Type %x Provider %s", *((uint32_t *)argument), type, provider->getName());
             break;
     }
     return kIOReturnSuccess;
 }
 
+int AsusSMC::wmi_parse_guid(const char *in, char *out) {
+    for (int i = 3; i >= 0; i--) {
+        out += snprintf(out, 3, "%02X", in[i] & 0xFF);
+    }
+
+    out += snprintf(out, 2, "-");
+    out += snprintf(out, 3, "%02X", in[5] & 0xFF);
+    out += snprintf(out, 3, "%02X", in[4] & 0xFF);
+    out += snprintf(out, 2, "-");
+    out += snprintf(out, 3, "%02X", in[7] & 0xFF);
+    out += snprintf(out, 3, "%02X", in[6] & 0xFF);
+    out += snprintf(out, 2, "-");
+    out += snprintf(out, 3, "%02X", in[8] & 0xFF);
+    out += snprintf(out, 3, "%02X", in[9] & 0xFF);
+    out += snprintf(out, 2, "-");
+
+    for (int i = 10; i <= 15; i++) {
+        out += snprintf(out, 3, "%02X", in[i] & 0xFF);
+    }
+
+    *out = '\0';
+    return 0;
+}
+
+int AsusSMC::wmi_evaluate_method(uint32_t method_id, uint32_t arg0, uint32_t arg1) {
+    OSObject *params[3];
+
+    struct wmi_args args = {
+        .arg0 = arg0,
+        .arg1 = arg1
+    };
+
+    params[0] = OSNumber::withNumber(static_cast<uint32_t>(0), 32);
+    params[1] = OSNumber::withNumber(method_id, 32);
+    params[2] = OSData::withBytes(&args, sizeof(wmi_args));
+
+    uint32_t val;
+    IOReturn ret = atkDevice->evaluateInteger(wmi_method, &val, params, 3);
+    params[0]->release();
+    params[1]->release();
+    params[2]->release();
+
+    if (ret != kIOReturnSuccess) {
+        DBGLOG("wmi", "wmi_evaluate_method failed");
+        return -1;
+    }
+
+    if (val == 0xfffffffe) {
+        DBGLOG("wmi", "wmi_evaluate_method invalid method_id");
+        return -1;
+    }
+
+    return val;
+}
+
+bool AsusSMC::wmi_dev_is_present(uint32_t dev_id) {
+    int status = wmi_evaluate_method(ASUS_WMI_METHODID_DSTS, dev_id, 0);
+    return status != -1 && (status & ASUS_WMI_DSTS_PRESENCE_BIT);
+}
+
+void AsusSMC::parse_WDG() {
+    OSObject *wdg;
+    if (atkDevice->evaluateObject("_WDG", &wdg) != kIOReturnSuccess) {
+        SYSLOG("wmi", "No method _WDG!");
+        return;
+    }
+
+    OSData *data = OSDynamicCast(OSData, wdg);
+    if (!data) {
+        SYSLOG("guid", "Cast WDG error!");
+        return;
+    }
+
+    int total = data->getLength() / sizeof(struct guid_block);
+
+    char guid_string[37];
+
+    for (int i = 0; i < total; i++) {
+        struct guid_block *g = (struct guid_block *) data->getBytesNoCopy(i * sizeof(struct guid_block), sizeof(struct guid_block));
+        wmi_parse_guid(g->guid, guid_string);
+
+        if (strncmp(guid_string, ASUS_WMI_MGMT_GUID, 36) == 0) {
+            snprintf(wmi_method, 5, "WM%c%c", g->object_id[0], g->object_id[1]);
+            DBGLOG("wmi", "parse_WDG found WMI method %s", wmi_method);
+            return;
+        }
+    }
+
+    // Couldn't find WMI method. Let's assume it's WMNB
+    SYSLOG("wmi", "parse_WDG couldn't find WMI method");
+    lilu_os_strncpy(wmi_method, "WMNB", 5);
+}
+
+void AsusSMC::initATKDevice() {
+    wmi_evaluate_method(ASUS_WMI_METHODID_INIT, 0, 0);
+}
+
+void AsusSMC::initALSDevice() {
+    auto dict = IOService::nameMatching("AppleACPIPlatformExpert");
+    if (!dict) {
+        SYSLOG("als", "WTF? Failed to create matching dictionary");
+        return;
+    }
+
+    auto acpi = IOService::waitForMatchingService(dict);
+    dict->release();
+
+    if (!acpi) {
+        SYSLOG("als", "WTF? No ACPI");
+        return;
+    }
+
+    acpi->release();
+
+    dict = IOService::nameMatching("ACPI0008");
+    if (!dict) {
+        SYSLOG("als", "WTF? Failed to create matching dictionary");
+        return;
+    }
+
+    auto deviceIterator = IOService::getMatchingServices(dict);
+    dict->release();
+
+    if (!deviceIterator) {
+        SYSLOG("als", "No iterator");
+        return;
+    }
+
+    alsDevice = OSDynamicCast(IOACPIPlatformDevice, deviceIterator->getNextObject());
+    deviceIterator->release();
+
+    if (!alsDevice) {
+        SYSLOG("als", "ACPI0008 device not found");
+        return;
+    }
+
+    if (alsDevice->validateObject("_ALI") != kIOReturnSuccess || !refreshALS(false)) {
+        SYSLOG("als", "No functional method _ALI on ALS device");
+        return;
+    }
+
+    SYSLOG("als", "Found ALS Device %s", alsDevice->getName());
+}
+
+void AsusSMC::initEC0Device() {
+    isFanEnabled = true;
+    isFanModEnabled = checkKernelArgument("-asussmcfanmod");
+
+    auto dict = IOService::nameMatching("AppleACPIPlatformExpert");
+    if (!dict) {
+        SYSLOG("ec0", "WTF? Failed to create matching dictionary");
+        isFanEnabled = isFanModEnabled = false;
+        return;
+    }
+
+    auto acpi = IOService::waitForMatchingService(dict);
+    dict->release();
+
+    if (!acpi) {
+        SYSLOG("ec0", "WTF? No ACPI");
+        isFanEnabled = isFanModEnabled = false;
+        return;
+    }
+
+    acpi->release();
+
+    dict = IOService::nameMatching("PNP0C09");
+    if (!dict) {
+        SYSLOG("ec0", "WTF? Failed to create matching dictionary");
+        isFanEnabled = isFanModEnabled = false;
+        return;
+    }
+
+    auto deviceIterator = IOService::getMatchingServices(dict);
+    dict->release();
+
+    if (!deviceIterator) {
+        SYSLOG("ec0", "No iterator");
+        isFanEnabled = isFanModEnabled = false;
+        return;
+    }
+
+    ec0Device = OSDynamicCast(IOACPIPlatformDevice, deviceIterator->getNextObject());
+    deviceIterator->release();
+
+    if (!ec0Device) {
+        SYSLOG("ec0", "PNP0C09 device not found");
+        isFanEnabled = isFanModEnabled = false;
+        return;
+    }
+
+    if (ec0Device->validateObject("TACH") != kIOReturnSuccess || !refreshFan()) {
+        SYSLOG("ec0", "No functional method TACH on EC0 device");
+        isFanEnabled = isFanModEnabled = false;
+        return;
+    }
+
+    if (isFanModEnabled && ec0Device->validateObject("ST98") != kIOReturnSuccess) {
+        SYSLOG("ec0", "No method ST98 on EC0 device");
+        isFanModEnabled = false;
+        return;
+    }
+
+    SYSLOG("ec0", "Found EC0 Device %s", ec0Device->getName());
+
+    if (isFanModEnabled) {
+        setProperty("IsFanSpeedModSupported", kOSBooleanTrue);
+    } else {
+        setProperty("IsFanSpeedReadSupported", kOSBooleanTrue);
+    }
+}
+
+void AsusSMC::initBattery() {
+    // Battery Health was introduced in 10.15.5
+    // Check if we're on 10.15.5+
+    if (getKernelVersion() < KernelVersion::Catalina || (getKernelVersion() == KernelVersion::Catalina && getKernelMinorVersion() < 5)) {
+        return;
+    }
+
+    isBatteryRSOCAvailable = wmi_dev_is_present(ASUS_WMI_DEVID_RSOC);
+    if (isBatteryRSOCAvailable) {
+        toggleBatteryConservativeMode(true);
+    }
+}
+
+void AsusSMC::initVirtualKeyboard() {
+    kbdDevice = new VirtualAppleKeyboard;
+
+    if (!kbdDevice || !kbdDevice->init() || !kbdDevice->attach(this) || !kbdDevice->start(this)) {
+        OSSafeReleaseNULL(kbdDevice);
+        SYSLOG("vkbd", "Failed to init VirtualAppleKeyboard");
+    }
+}
+
+void AsusSMC::startATKDevice() {
+    // Check direct ACPI messaging support
+    if (atkDevice->validateObject("DMES") == kIOReturnSuccess) {
+        DBGLOG("atk", "Direct ACPI message is supported");
+        setProperty("IsDirectACPIMessagingSupported", kOSBooleanTrue);
+        directACPImessaging = true;
+    }
+
+    // Check keyboard backlight support
+    if (atkDevice->validateObject("SKBV") == kIOReturnSuccess) {
+        SYSLOG("atk", "Keyboard backlight is supported");
+        hasKeybrdBLight = true;
+        addLKSBConsumer([](const uint16_t &value, OSObject *consumer) {
+            auto atk = OSDynamicCast(IOACPIPlatformDevice, consumer);
+            OSNumber *arg = OSNumber::withNumber(value / 16, 16);
+            atk->evaluateObject("SKBV", NULL, (OSObject **)&arg, 1);
+            arg->release();
+        }, atkDevice);
+    } else {
+        hasKeybrdBLight = false;
+        DBGLOG("atk", "Keyboard backlight is not supported");
+    }
+    setProperty("IsKeyboardBacklightSupported", hasKeybrdBLight);
+
+    // Turn on ALS sensor
+    toggleALS(true);
+    isALSEnabled = true;
+    setProperty("IsALSEnabled", isALSEnabled);
+    SYSLOG("atk", "ALS is turned on at boot");
+}
+
+bool AsusSMC::refreshALS(bool post) {
+    if (!alsDevice) {
+        return false;
+    }
+
+    IOReturn ret = kIOReturnSuccess;
+    uint32_t lux = 150;
+
+    if (isALSEnabled) {
+        ret = alsDevice->evaluateInteger("_ALI", &lux);
+        if (ret != kIOReturnSuccess) {
+            lux = 0xFFFFFFFF; // ACPI invalid
+        }
+    }
+
+    atomic_store_explicit(&currentLux, lux, memory_order_release);
+
+    if (post) {
+        VirtualSMCAPI::postInterrupt(SmcEventALSChange);
+        poller->setTimeoutMS(SensorUpdateTimeoutMS);
+    }
+
+    DBGLOG("als", "refreshALS lux %u", lux);
+
+    return ret == kIOReturnSuccess;
+}
+
+bool AsusSMC::refreshFan() {
+    if (!ec0Device || !isFanEnabled) {
+        return false;
+    }
+
+    uint32_t speed;
+
+    OSNumber *arg = OSNumber::withNumber(static_cast<uint32_t>(0), 32);
+    IOReturn ret = ec0Device->evaluateInteger("TACH", &speed, (OSObject **)&arg, 1);
+    arg->release();
+
+    if (ret != kIOReturnSuccess) {
+        DBGLOG("fan", "read fan speed failed");
+        speed = 10000;
+    }
+
+    atomic_store_explicit(&currentFanSpeed, speed, memory_order_release);
+
+    DBGLOG("fan", "refreshFan speed %u", speed);
+
+    return ret == kIOReturnSuccess;
+}
+
+bool AsusSMC::setFanSpeed() {
+    if (!ec0Device || !isFanModEnabled) {
+        return false;
+    }
+
+    int temp = wmi_evaluate_method(0x4647574D, 0x00020013, 0x0);
+    if (temp == -1) {
+        temp = 60;
+    }
+
+    DBGLOG("fan", "setFanSpeed cpu temp %u", temp);
+
+    uint32_t newSUM = temp + FSUM - FHST[FIDX];
+    FHST[FIDX] = temp;
+    FSUM = newSUM;
+
+    FIDX++;
+    if (FIDX == arrsize(FHST)) {
+        FIDX = 0;
+    }
+
+    if (FNUM < arrsize(FHST)) {
+        ++FNUM;
+    }
+
+    uint32_t avgtemp = (FSUM + FNUM - 1) / FNUM; // round division up
+    DBGLOG("fan", "setFanSpeed average temp %u", avgtemp);
+
+    uint32_t idx = -1;
+    for (uint32_t i = 0, count = arrsize(FTA1); i < count; i++) {
+        if (FTA1[i] == avgtemp) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx == -1) {
+        idx = arrsize(FTA1) - 1;
+    }
+
+    if (idx == FLST) {
+        FCNT = 0;
+        return true;
+    }
+
+    FCNT++;
+    uint32_t wait = (idx > FLST) ? ((idx - FLST) / FCTU) : ((FLST - idx) / FCTD);
+    if (FCNT >= wait) {
+        FLST = idx;
+        FCNT = 0;
+
+        uint32_t res;
+        OSNumber *arg = OSNumber::withNumber(static_cast<uint32_t>(FTA2[idx]), 32);
+        ec0Device->evaluateInteger("ST98", &res, (OSObject **)&arg, 1);
+        arg->release();
+
+        DBGLOG("fan", "setFanSpeed call ST98 %u", FTA2[idx]);
+    }
+
+    return true;
+}
+
 void AsusSMC::handleMessage(int code) {
-    // Processing the code
     switch (code) {
         case 0x57: // AC disconnected
         case 0x58: // AC connected
@@ -242,10 +628,10 @@ void AsusSMC::handleMessage(int code) {
             break;
 
         case 0x7A: // Fn + A, ALS Sensor
-            if (hasALSensor) {
-                isALSenabled = !isALSenabled;
-                toggleALS(isALSenabled);
-            }
+            // We should really do this in userspace
+            // (e.g. "Automatically adjust brightness")
+            isALSEnabled = !isALSEnabled;
+            setProperty("IsALSEnabled", isALSEnabled);
             break;
 
         case 0x7D: // Airplane mode
@@ -280,17 +666,27 @@ void AsusSMC::handleMessage(int code) {
     DBGLOG("atk", "Received key %d(0x%x)", code, code);
 }
 
+void AsusSMC::addLKSBConsumer(lksbCallback callback, OSObject *consumer) {
+    auto *pcall = stored_pair<lksbCallback, OSObject *>::create();
+    pcall->first = callback;
+    pcall->second = consumer;
+
+    IOLockLock(lksbLock);
+    LKSBCallbacks.push_back(pcall);
+    IOLockUnlock(lksbLock);
+}
+
 void AsusSMC::letSleep() {
-    kev.sendMessage(kevSleep, 0, 0);
+    kev.sendMessage(kDaemonSleep, 0, 0);
 }
 
 void AsusSMC::toggleAirplaneMode() {
-    kev.sendMessage(kevAirplaneMode, 0, 0);
+    kev.sendMessage(kDaemonAirplaneMode, 0, 0);
 }
 
 void AsusSMC::toggleTouchpad() {
-    touchpadEnabled = !touchpadEnabled;
-    if (touchpadEnabled) {
+    isTouchpadEnabled = !isTouchpadEnabled;
+    if (isTouchpadEnabled) {
         setProperty("IsTouchpadEnabled", true);
         DBGLOG("atk", "Enabled Touchpad");
     } else {
@@ -298,7 +694,29 @@ void AsusSMC::toggleTouchpad() {
         DBGLOG("atk", "Disabled Touchpad");
     }
 
-    dispatchMessage(kKeyboardSetTouchStatus, &touchpadEnabled);
+    dispatchMessage(kKeyboardSetTouchStatus, &isTouchpadEnabled);
+}
+
+void AsusSMC::toggleALS(bool state) {
+    if (wmi_evaluate_method(ASUS_WMI_METHODID_DEVS, ASUS_WMI_DEVID_ALS_ENABLE, state ? 1 : 0) == -1) {
+        SYSLOG("atk", "Failed to %s ALSC", state ? "enable" : "disable");
+    } else {
+        DBGLOG("atk", "ALS is %s", state ? "enabled" : "disabled");
+    }
+}
+
+void AsusSMC::toggleBatteryConservativeMode(bool state) {
+    if (!isBatteryRSOCAvailable) {
+        DBGLOG("batt", "RSOC unavailable");
+        return;
+    }
+
+    if (wmi_evaluate_method(ASUS_WMI_METHODID_DEVS, ASUS_WMI_DEVID_RSOC, state ? 80 : 100) != 1) {
+        SYSLOG("batt", "Failed to %s battery conservative mode", state ? "enable" : "disable");
+    } else {
+        DBGLOG("batt", "Battery conservative mode is %s", state ? "enabled" : "disabled");
+        setProperty("BatteryConservativeMode", state);
+    }
 }
 
 void AsusSMC::displayOff() {
@@ -314,47 +732,6 @@ void AsusSMC::displayOff() {
     isPanelBackLightOn = !isPanelBackLightOn;
 }
 
-void AsusSMC::checkATK() {
-    // Check direct ACPI messaging support
-    if (atkDevice->validateObject("DMES") == kIOReturnSuccess) {
-        DBGLOG("atk", "Direct ACPI message is supported");
-        directACPImessaging = true;
-    }
-
-    // Check keyboard backlight support
-    if (atkDevice->validateObject("SKBV") == kIOReturnSuccess) {
-        SYSLOG("atk", "Keyboard backlight is supported");
-        hasKeybrdBLight = true;
-    } else {
-        hasKeybrdBLight = false;
-        DBGLOG("atk", "Keyboard backlight is not supported");
-    }
-    setProperty("IsKeyboardBacklightSupported", hasKeybrdBLight);
-
-    // Check ALS sensor
-    if (atkDevice->validateObject("ALSC") == kIOReturnSuccess && atkDevice->validateObject("ALSS") == kIOReturnSuccess) {
-        SYSLOG("atk", "Found ALS sensor");
-        hasALSensor = isALSenabled = true;
-        toggleALS(isALSenabled);
-        SYSLOG("atk", "ALS has been turned on at boot");
-    } else {
-        hasALSensor = false;
-        setProperty("IsALSSupported", false);
-        DBGLOG("atk", "ALS sensor not found");
-    }
-}
-
-void AsusSMC::toggleALS(bool state) {
-    UInt32 res;
-    OSNumber *arg = OSNumber::withNumber(state, sizeof(state) * 8);
-    if (atkDevice->evaluateInteger("ALSC", &res, (OSObject**)&arg, 1) == kIOReturnSuccess)
-        DBGLOG("atk", "ALS has been %s (ALSC ret %d)", state ? "enabled" : "disabled", res);
-    else
-        DBGLOG("atk", "Failed to call ALSC");
-    setProperty("IsALSEnabled", state);
-    arg->release();
-}
-
 int AsusSMC::checkBacklightEntry() {
     if (IORegistryEntry *bkl = IORegistryEntry::fromPath(backlightEntry)) {
         OSSafeReleaseNULL(bkl);
@@ -367,42 +744,51 @@ int AsusSMC::checkBacklightEntry() {
 
 int AsusSMC::findBacklightEntry() {
     // Check for previous found backlight entry
-    if (checkBacklightEntry())
+    if (checkBacklightEntry()) {
         return 1;
+    }
 
     snprintf(backlightEntry, sizeof(backlightEntry), "IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/IGPU@2/AppleIntelFramebuffer@0/display0/AppleBacklightDisplay");
-    if (checkBacklightEntry())
+    if (checkBacklightEntry()) {
         return 1;
+    }
 
     snprintf(backlightEntry, sizeof(backlightEntry), "IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/GFX0@2/AppleIntelFramebuffer@0/display0/AppleBacklightDisplay");
-    if (checkBacklightEntry())
+    if (checkBacklightEntry()) {
         return 1;
+    }
 
     char deviceName[5][5] = {"PEG0", "PEGP", "PEGR", "P0P2", "IXVE"};
     for (int i = 0; i < 5; i++) {
         snprintf(backlightEntry, sizeof(backlightEntry), "IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/%s@1/IOPP/GFX0@0/NVDA,Display-A@0/NVDA/display0/AppleBacklightDisplay", deviceName[i]);
-        if (checkBacklightEntry())
+        if (checkBacklightEntry()) {
             return 1;
+        }
 
         snprintf(backlightEntry, sizeof(backlightEntry), "IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/%s@3/IOPP/GFX0@0/NVDA,Display-A@0/NVDATesla/display0/AppleBacklightDisplay", deviceName[i]);
-        if (checkBacklightEntry())
+        if (checkBacklightEntry()) {
             return 1;
+        }
 
         snprintf(backlightEntry, sizeof(backlightEntry), "IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/%s@10/IOPP/GFX0@0/NVDA,Display-A@0/NVDATesla/display0/AppleBacklightDisplay", deviceName[i]);
-        if (checkBacklightEntry())
+        if (checkBacklightEntry()) {
             return 1;
+        }
 
         snprintf(backlightEntry, sizeof(backlightEntry), "IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/%s@1/IOPP/display@0/NVDA,Display-A@0/NVDA/display0/AppleBacklightDisplay", deviceName[i]);
-        if (checkBacklightEntry())
+        if (checkBacklightEntry()) {
             return 1;
+        }
 
         snprintf(backlightEntry, sizeof(backlightEntry), "IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/%s@3/IOPP/display@0/NVDA,Display-A@0/NVDATesla/display0/AppleBacklightDisplay", deviceName[i]);
-        if (checkBacklightEntry())
+        if (checkBacklightEntry()) {
             return 1;
+        }
 
         snprintf(backlightEntry, sizeof(backlightEntry), "IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/%s@10/IOPP/display@0/NVDA,Display-A@0/NVDATesla/display0/AppleBacklightDisplay", deviceName[i]);
-        if (checkBacklightEntry())
+        if (checkBacklightEntry()) {
             return 1;
+        }
     }
 
     return 0;
@@ -435,19 +821,6 @@ void AsusSMC::readPanelBrightnessValue() {
     OSSafeReleaseNULL(displayDeviceEntry);
 }
 
-#pragma mark -
-#pragma mark VirtualKeyboard
-#pragma mark -
-
-void AsusSMC::initVirtualKeyboard() {
-    _virtualKBrd = new VirtualAppleKeyboard;
-
-    if (!_virtualKBrd || !_virtualKBrd->init() || !_virtualKBrd->attach(this) || !_virtualKBrd->start(this)) {
-        OSSafeReleaseNULL(_virtualKBrd);
-        SYSLOG("virtkbrd", "Failed to init VirtualAppleKeyboard");
-    }
-}
-
 IOReturn AsusSMC::postKeyboardInputReport(const void *report, uint32_t reportSize) {
     IOReturn result = kIOReturnError;
 
@@ -455,9 +828,9 @@ IOReturn AsusSMC::postKeyboardInputReport(const void *report, uint32_t reportSiz
         return kIOReturnBadArgument;
     }
 
-    if (_virtualKBrd) {
+    if (kbdDevice) {
         if (auto buffer = IOBufferMemoryDescriptor::withBytes(report, reportSize, kIODirectionNone)) {
-            result = _virtualKBrd->handleReport(buffer, kIOHIDReportTypeInput, kIOHIDOptionsTypeNone);
+            result = kbdDevice->handleReport(buffer, kIOHIDReportTypeInput, kIOHIDOptionsTypeNone);
             buffer->release();
         }
     }
@@ -484,10 +857,6 @@ void AsusSMC::dispatchTCReport(int code, int loop) {
         postKeyboardInputReport(&tcreport, sizeof(tcreport));
     }
 }
-
-#pragma mark -
-#pragma mark Notification methods
-#pragma mark -
 
 void AsusSMC::registerNotifications() {
     auto *key = OSSymbol::withCString(kDeliverNotifications);
@@ -532,8 +901,9 @@ void AsusSMC::dispatchMessageGated(int *message, void *data) {
     OSCollectionIterator *i = OSCollectionIterator::withCollection(_notificationServices);
 
     if (i != NULL) {
-        while (IOService *service = OSDynamicCast(IOService, i->getNextObject()))
+        while (IOService *service = OSDynamicCast(IOService, i->getNextObject())) {
             service->message(*message, this, data);
+        }
         i->release();
     }
 }
@@ -541,10 +911,6 @@ void AsusSMC::dispatchMessageGated(int *message, void *data) {
 void AsusSMC::dispatchMessage(int message, void *data) {
     command_gate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AsusSMC::dispatchMessageGated), &message, data);
 }
-
-#pragma mark -
-#pragma mark VirtualSMC plugin - Ported from SMCLightSensor
-#pragma mark -
 
 void AsusSMC::registerVSMC() {
     vsmcNotifier = VirtualSMCAPI::registerHandler(vsmcNotificationHandler, this);
@@ -555,7 +921,9 @@ void AsusSMC::registerVSMC() {
     SMCKBrdBLightValue::lkb lkb;
     SMCKBrdBLightValue::lks lks;
 
-    VirtualSMCAPI::addKey(KeyAL, vsmcPlugin.data, VirtualSMCAPI::valueWithUint16(0, &forceBits, SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE));
+    VirtualSMCAPI::addKey(KeyAL, vsmcPlugin.data, VirtualSMCAPI::valueWithUint16(
+        0, &forceBits,
+        SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE));
 
     VirtualSMCAPI::addKey(KeyALI0, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
         reinterpret_cast<const SMC_DATA *>(&sensor), sizeof(sensor), SmcKeyTypeAli, nullptr,
@@ -565,7 +933,9 @@ void AsusSMC::registerVSMC() {
         reinterpret_cast<const SMC_DATA *>(&noSensor), sizeof(noSensor), SmcKeyTypeAli, nullptr,
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_FUNCTION));
 
-    VirtualSMCAPI::addKey(KeyALRV, vsmcPlugin.data, VirtualSMCAPI::valueWithUint16(1, nullptr, SMC_KEY_ATTRIBUTE_READ));
+    VirtualSMCAPI::addKey(KeyALRV, vsmcPlugin.data, VirtualSMCAPI::valueWithUint16(
+        1, nullptr,
+        SMC_KEY_ATTRIBUTE_READ));
 
     VirtualSMCAPI::addKey(KeyALV0, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
         reinterpret_cast<const SMC_DATA *>(&emptyValue), sizeof(emptyValue), SmcKeyTypeAlv, new SMCALSValue(&currentLux, &forceBits),
@@ -576,82 +946,94 @@ void AsusSMC::registerVSMC() {
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
 
     VirtualSMCAPI::addKey(KeyLKSB, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&lkb), sizeof(lkb), SmcKeyTypeLkb, new SMCKBrdBLightValue(atkDevice, _hidDrivers),
+        reinterpret_cast<const SMC_DATA *>(&lkb), sizeof(lkb), SmcKeyTypeLkb, new SMCKBrdBLightValue(atkDevice, &LKSBCallbacks, lksbLock),
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
 
     VirtualSMCAPI::addKey(KeyLKSS, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
         reinterpret_cast<const SMC_DATA *>(&lks), sizeof(lks), SmcKeyTypeLks, nullptr,
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
 
-    VirtualSMCAPI::addKey(KeyMSLD, vsmcPlugin.data, VirtualSMCAPI::valueWithUint8(0, nullptr,
+    VirtualSMCAPI::addKey(KeyMSLD, vsmcPlugin.data, VirtualSMCAPI::valueWithUint8(
+        0, nullptr,
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
+
+    if (isFanEnabled) {
+        VirtualSMCAPI::addKey(KeyFNum, vsmcPlugin.data, VirtualSMCAPI::valueWithUint8(
+            1, nullptr,
+            SMC_KEY_ATTRIBUTE_CONST | SMC_KEY_ATTRIBUTE_READ));
+
+        VirtualSMCAPI::addKey(KeyF0Ac, vsmcPlugin.data, VirtualSMCAPI::valueWithFp(
+            0, SmcKeyTypeFpe2, new F0Ac(&currentFanSpeed),
+            SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_FUNCTION));
+
+        FanTypeDescStruct desc;
+        lilu_os_strncpy(desc.strFunction, "System Fan", DiagFunctionStrLen);
+
+        VirtualSMCAPI::addKey(KeyF0ID, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
+            reinterpret_cast<const SMC_DATA *>(&desc), sizeof(desc), SmcKeyTypeFds, nullptr,
+            SMC_KEY_ATTRIBUTE_CONST | SMC_KEY_ATTRIBUTE_READ));
+    }
+
+    if (isBatteryRSOCAvailable) {
+        VirtualSMCAPI::addKey(KeyBDVT, vsmcPlugin.data, VirtualSMCAPI::valueWithFlag(
+            false, new BDVT(this),
+            SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_ATOMIC));
+    }
+
+    qsort(const_cast<VirtualSMCKeyValue *>(vsmcPlugin.data.data()), vsmcPlugin.data.size(), sizeof(VirtualSMCKeyValue), VirtualSMCKeyValue::compare);
 }
 
 bool AsusSMC::vsmcNotificationHandler(void *sensors, void *refCon, IOService *vsmc, IONotifier *notifier) {
     if (sensors && vsmc) {
-        DBGLOG("alsd", "got vsmc notification");
+        DBGLOG("atk", "got vsmc notification");
         auto self = static_cast<AsusSMC *>(sensors);
         auto ret = vsmc->callPlatformFunction(VirtualSMCAPI::SubmitPlugin, true, sensors, &self->vsmcPlugin, nullptr, nullptr);
         if (ret == kIOReturnSuccess) {
-            DBGLOG("alsd", "Submitted plugin");
+            DBGLOG("atk", "Submitted plugin");
 
             self->workloop = self->getWorkLoop();
             self->poller = IOTimerEventSource::timerEventSource(self, [](OSObject *object, IOTimerEventSource *sender) {
                 auto ls = OSDynamicCast(AsusSMC, object);
-                if (ls) ls->refreshSensor(true);
+                if (ls) {
+                    ls->refreshALS(true);
+                    ls->refreshFan();
+                    ls->setFanSpeed();
+                }
             });
 
             if (!self->poller || !self->workloop) {
-                SYSLOG("alsd", "Failed to create poller or workloop");
+                SYSLOG("atk", "Failed to create poller or workloop");
                 return false;
             }
 
             if (self->workloop->addEventSource(self->poller) != kIOReturnSuccess) {
-                SYSLOG("alsd", "Failed to add timer event source to workloop");
+                SYSLOG("atk", "Failed to add timer event source to workloop");
                 return false;
             }
 
             if (self->poller->setTimeoutMS(SensorUpdateTimeoutMS) != kIOReturnSuccess) {
-                SYSLOG("alsd", "Failed to set timeout");
+                SYSLOG("atk", "Failed to set timeout");
                 return false;
             }
 
             return true;
         } else if (ret != kIOReturnUnsupported) {
-            SYSLOG("alsd", "Plugin submission failure %X", ret);
+            SYSLOG("atk", "Plugin submission failure %X", ret);
         } else {
-            DBGLOG("alsd", "Plugin submission to non vsmc");
+            DBGLOG("atk", "Plugin submission to non vsmc");
         }
     } else {
-        SYSLOG("alsd", "Got null vsmc notification");
+        SYSLOG("atk", "Got null vsmc notification");
     }
 
     return false;
-}
-
-bool AsusSMC::refreshSensor(bool post) {
-    uint32_t lux = 0;
-    auto ret = atkDevice->evaluateInteger("ALSS", &lux);
-    if (ret != kIOReturnSuccess)
-        lux = 0xFFFFFFFF; // ACPI invalid
-
-    atomic_store_explicit(&currentLux, lux, memory_order_release);
-
-    if (post) {
-        VirtualSMCAPI::postInterrupt(SmcEventALSChange);
-        poller->setTimeoutMS(SensorUpdateTimeoutMS);
-    }
-
-    DBGLOG("alsd", "refreshSensor lux %u", lux);
-
-    return ret == kIOReturnSuccess;
 }
 
 EXPORT extern "C" kern_return_t ADDPR(kern_start)(kmod_info_t *, void *) {
     // Report success but actually do not start and let I/O Kit unload us.
     // This works better and increases boot speed in some cases.
     PE_parse_boot_argn("liludelay", &ADDPR(debugPrintDelay), sizeof(ADDPR(debugPrintDelay)));
-    ADDPR(debugEnabled) = checkKernelArgument("-asussmcdbg");
+    ADDPR(debugEnabled) = checkKernelArgument("-vsmcdbg") || checkKernelArgument("-asussmcdbg");
     return KERN_SUCCESS;
 }
 

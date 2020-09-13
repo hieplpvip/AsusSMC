@@ -17,14 +17,13 @@ public:
 
     IOReturn getReport(IOMemoryDescriptor *report, IOHIDReportType reportType, IOOptionBits options) override;
 
-    OSString* newManufacturerString() const override;
-    OSString* newProductString() const override;
-    OSString* newTransportString() const override;
-    OSNumber* newVendorIDNumber() const override;
-    OSNumber* newProductIDNumber() const override;
-    OSNumber* newLocationIDNumber() const override;
-    OSNumber* newCountryCodeNumber() const override;
-    OSNumber* newVersionNumber() const override;
-    OSNumber* newPrimaryUsagePageNumber() const override;
-    OSNumber* newPrimaryUsageNumber() const override;
+    OSString *newManufacturerString() const override;
+    OSString *newProductString() const override;
+    OSNumber *newVendorIDNumber() const override;
+    OSNumber *newProductIDNumber() const override;
+    OSNumber *newLocationIDNumber() const override;
+    OSNumber *newCountryCodeNumber() const override;
+    OSNumber *newVersionNumber() const override;
+    OSNumber *newPrimaryUsagePageNumber() const override;
+    OSNumber *newPrimaryUsageNumber() const override;
 };

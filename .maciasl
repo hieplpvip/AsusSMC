@@ -1,7 +1,5 @@
 [als] --> Ambient Light Sensor	patches/NullPatch.txt
 [als] Fake ALS	patches/fake_als.txt
-[als] Patch ALSS	patches/patch_alss.txt
-[als] Patch ALSC	patches/patch_alsc.txt
 [kbl] --> Keyboard Backlight	patches/NullPatch.txt
 [kbl] Ivy Bridge	patches/kbl_ivybridge.txt
 [kbl] Haswell/Broadwell/Skylake	patches/kbl_broadwell.txt

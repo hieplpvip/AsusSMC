@@ -13,9 +13,9 @@
 #import <sys/ioctl.h>
 #import <sys/socket.h>
 #import <sys/kern_event.h>
+#import <dlfcn.h>
 #import "BezelServices.h"
 #import "OSD.h"
-#include <dlfcn.h>
 
 /*
  *    kAERestart        will cause system to restart
@@ -32,10 +32,10 @@ int IOBluetoothPreferenceGetControllerPowerState(void);
 static void *(*_BSDoGraphicWithMeterAndTimeout)(CGDirectDisplayID arg0, BSGraphic arg1, int arg2, float v, int timeout) = NULL;
 
 enum {
-    kevKeyboardBacklight = 1,
-    kevAirplaneMode = 2,
-    kevSleep = 3,
-    kevTouchpad = 4,
+    kDaemonKeyboardBacklight = 1,
+    kDaemonAirplaneMode = 2,
+    kDaemonSleep = 3,
+    kDaemonTouchpad = 4,
 };
 
 struct AsusSMCMessage {
@@ -153,88 +153,76 @@ int main(int argc, const char *argv[]) {
             _loadOSDFramework();
         }
 
-        //system socket
+        // system socket
         int systemSocket = -1;
 
-        //create system socket to receive kernel event data
+        // create system socket to receive kernel event data
         systemSocket = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
 
-        //struct for vendor code
-        // ->set via call to ioctl/SIOCGKEVVENDOR
+        // struct for vendor code
         struct kev_vendor_code vendorCode = {0};
 
-        //set vendor name string
+        // set vendor name string
         strncpy(vendorCode.vendor_string, "com.hieplpvip", KEV_VENDOR_CODE_MAX_STR_LEN);
 
-        //get vendor name -> vendor code mapping
-        // ->vendor id, saved in 'vendorCode' variable
+        // get vendor code
         ioctl(systemSocket, SIOCGKEVVENDOR, &vendorCode);
 
-        //struct for kernel request
-        // ->set filtering options
+        // struct for kernel request filtering options
         struct kev_request kevRequest = {0};
 
-        //init filtering options
-        // ->only interested in objective-see's events kevRequest.vendor_code = vendorCode.vendor_code;
-
-        //...any class
+        // any class
         kevRequest.kev_class = KEV_ANY_CLASS;
 
-        //...any subclass
+        // any subclass
         kevRequest.kev_subclass = KEV_ANY_SUBCLASS;
 
-        //tell kernel what we want to filter on
+        // tell kernel what we want to filter on
         ioctl(systemSocket, SIOCSKEVFILT, &kevRequest);
 
-        //bytes received from system socket
+        // bytes received from system socket
         ssize_t bytesReceived = -1;
 
-        //message from kext
-        // ->size is cumulation of header, struct, and max length of a proc path
+        // message from kext
+        // size is cumulation of header, struct, and max length of a proc path
         char kextMsg[KEV_MSG_HEADER_SIZE + sizeof(struct AsusSMCMessage)] = {0};
 
         struct AsusSMCMessage *message = NULL;
 
         while (YES) {
-            //printf("listening...\n");
-
             bytesReceived = recv(systemSocket, kextMsg, sizeof(kextMsg), 0);
 
             if (bytesReceived != sizeof(kextMsg)) continue;
 
-            //struct for broadcast data from the kext
+            // struct for broadcast data from the kext
             struct kern_event_msg *kernEventMsg = {0};
 
-            //type cast
-            // ->to access kev_event_msg header
-            kernEventMsg = (struct kern_event_msg*)kextMsg;
+            // type cast to access kev_event_msg header
+            kernEventMsg = (struct kern_event_msg *)kextMsg;
 
-            //only care about 'process began' events
+            // only care about events sent by AsusSMC
             if (AsusSMCEventCode != kernEventMsg->event_code) {
-                //skip
                 continue;
             }
 
-            //printf("new message\n");
+            // typecast custom data
+            // begins right after header
+            message = (struct AsusSMCMessage *)&kernEventMsg->event_data[0];
 
-            //typecast custom data
-            // ->begins right after header
-            message = (struct AsusSMCMessage*)&kernEventMsg->event_data[0];
-
-            printf("type:%d x:%d y:%d\n", message->type, message->x, message->y);
+            //printf("type:%d x:%d y:%d\n", message->type, message->x, message->y);
 
             switch (message->type) {
-                case kevKeyboardBacklight:
+                case kDaemonKeyboardBacklight:
                     showKBoardBLightStatus(message->x, message->y);
                     break;
-                case kevAirplaneMode:
+                case kDaemonAirplaneMode:
                     toggleAirplaneMode();
                     break;
-                case kevSleep:
+                case kDaemonSleep:
                     goToSleep();
                     break;
-                default:
-                    printf("unknown type %d\n", message->type);
+                //default:
+                    //printf("unknown type %d\n", message->type);
             }
         }
     }

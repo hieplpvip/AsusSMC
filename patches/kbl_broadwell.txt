@@ -6,7 +6,6 @@ into method label SKBV parent_label ATKD remove_entry;
 into device label ATKD insert begin
 Method (SKBV, 1, NotSerialized)\n
 {\n
-    ^^KBLV = Arg0 / 16\n
     ^^PCI0.LPCB.EC0.WRAM (0x04B1, Arg0)\n
     Return (Arg0)\n
 }\n

@@ -3,7 +3,7 @@
 #for how to use
 
 # Replacing method _Q71 for space key to work
-into Method label _Q71 replace_content begin 
+into Method label _Q71 replace_content begin
     If (ATKP)\n
     {\n
         \_SB.ATKD.IANE (0x5C)\n
@@ -12,7 +12,7 @@ end;
 
 # Replacing method _Q72 for V key to work
 # by removing the code which prevents
-into Method label _Q72 replace_content begin 
+into Method label _Q72 replace_content begin
     If (ATKP)\n
     {\n
         \_SB.ATKD.IANE (0x8A)\n
@@ -21,7 +21,7 @@ end;
 
 # Replacing method _Q73 for C key to work
 # by removing the code which prevents
-into Method label _Q73 replace_content begin 
+into Method label _Q73 replace_content begin
     If (ATKP)\n
     {\n
         \_SB.ATKD.IANE (0x82)\n

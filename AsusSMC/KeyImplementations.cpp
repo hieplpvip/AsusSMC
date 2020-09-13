@@ -6,6 +6,7 @@
 //
 
 #include "KeyImplementations.hpp"
+#include "AsusSMC.hpp"
 
 SMC_RESULT SMCALSValue::readAccess() {
     auto value = reinterpret_cast<Value *>(data);
@@ -30,27 +31,41 @@ SMC_RESULT SMCALSValue::readAccess() {
 SMC_RESULT SMCKBrdBLightValue::update(const SMC_DATA *src)  {
     lkb *value = new lkb;
     lilu_os_memcpy(value, src, size);
+
+    // tval is in range [0x0, 0xffb]
     uint16_t tval = (value->val1 << 4) | (value->val2 >> 4);
-    DBGLOG("kbrdblight", "LKSB update %d", tval);
-    tval /= 16;
-
-    if (atkDevice) {
-        // Call ACPI method to adjust keyboard backlight
-        OSNumber *arg = OSNumber::withNumber(tval, sizeof(tval) * 8);
-        atkDevice->evaluateObject("SKBV", NULL, (OSObject**)&arg, 1);
-        arg->release();
-    }
-
-    OSCollectionIterator *i = OSCollectionIterator::withCollection(_hidDrivers);
-    if (i != NULL) {
-        while (AsusHIDDriver *hid = OSDynamicCast(AsusHIDDriver, i->getNextObject()))
-            hid->setKeyboardBacklight(tval);
-        i->release();
-    }
+    DBGLOG("lksb", "LKSB update %d", tval);
 
     delete value;
 
-    // Write value to SMC
+    IOLockLock(lksbLock);
+    for (size_t i = 0; i < callbacks->size(); i++) {
+        auto p = (*callbacks)[i];
+        p->first(tval, p->second);
+        DBGLOG("lksb", "callback %u consumer %p", i, p->second);
+    }
+    IOLockUnlock(lksbLock);
+
+    lilu_os_memcpy(data, src, size);
+    return SmcSuccess;
+}
+
+SMC_RESULT F0Ac::readAccess() {
+    uint16_t speed = atomic_load_explicit(currentSpeed, memory_order_acquire);
+    *reinterpret_cast<uint16_t *>(data) = VirtualSMCAPI::encodeIntFp(SmcKeyTypeFpe2, speed);
+    return SmcSuccess;
+}
+
+SMC_RESULT BDVT::update(const SMC_DATA *src)  {
+    bool state = false;
+    lilu_os_memcpy(&state, src, size);
+
+    // BDVT is 00 when battery health is enabled and 01 when disabled
+    state = !state;
+
+    AsusSMC *drv = OSDynamicCast(AsusSMC, dst);
+    drv->toggleBatteryConservativeMode(state);
+
     lilu_os_memcpy(data, src, size);
     return SmcSuccess;
 }

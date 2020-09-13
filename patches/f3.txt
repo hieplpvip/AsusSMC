@@ -3,7 +3,7 @@
 #for how to use
 
 # Replacing method _Q0C for F3 key to work
-into Method label _Q0C replace_content begin 
+into Method label _Q0C replace_content begin
     If (ATKP)\n
     {\n
         \_SB.ATKD.IANE (0xC5)\n

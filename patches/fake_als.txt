@@ -15,17 +15,3 @@ Device(ALS0)\n
     })\n
 }
 end;
-into method label ALSS parent_label ATKD remove_entry;
-into method label ALSC parent_label ATKD remove_entry;
-into device label ATKD insert begin
-Method (ALSS, 0, NotSerialized)\n
-{\n
-    Return (^^ALS0._ALI)\n
-}
-end;
-into device label ATKD insert begin
-Method (ALSC, 1, NotSerialized)\n
-{\n
-    // This method does nothing\n
-}
-end;

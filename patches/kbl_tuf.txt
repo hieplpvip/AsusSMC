@@ -1,0 +1,13 @@
+#Maintained by hieplpvip
+#See https://github.com/hieplpvip/AsusSMC/wiki/Installation-Instruction
+#for how to use
+
+into method label SKBV parent_label ATKD remove_entry;
+into device label ATKD insert begin
+Method (SKBV, 1, NotSerialized)\n
+{\n
+    Arg0 = (Arg0 / 16) | 0x80\n
+    SLKI(Arg0)\n
+    Return (One)\n
+}\n
+end;

@@ -10,62 +10,29 @@
 
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOCommandGate.h>
+#include "AsusHIDDriver.hpp"
 #include "HIDReport.hpp"
 #include "HIDUsageTables.h"
 #include "VirtualAppleKeyboard.hpp"
 #include "KernEventServer.hpp"
 #include "KeyImplementations.hpp"
 
-struct guid_block {
-    char guid[16];
-    union {
-        char object_id[2];
-        struct {
-            unsigned char notify_id;
-            unsigned char reserved;
-        };
-    };
-    UInt8 instance_count;
-    UInt8 flags;
-};
-
-/*
- * If the GUID data block is marked as expensive, we must enable and
- * explicitily disable data collection.
- */
-#define ACPI_WMI_EXPENSIVE   0x1
-#define ACPI_WMI_METHOD      0x2    /* GUID is a method */
-#define ACPI_WMI_STRING      0x4    /* GUID takes & returns a string */
-#define ACPI_WMI_EVENT       0x8    /* GUID is an event */
-
-#define AsusSMCEventCode 0x8102
-
-const UInt8 NOTIFY_BRIGHTNESS_UP_MIN = 0x10;
-const UInt8 NOTIFY_BRIGHTNESS_UP_MAX = 0x1F;
-
-const UInt8 NOTIFY_BRIGHTNESS_DOWN_MIN = 0x20;
-const UInt8 NOTIFY_BRIGHTNESS_DOWN_MAX = 0x2F;
+#define ASUS_WMI_METHODID_DSTS         0x53545344
+#define ASUS_WMI_METHODID_DEVS         0x53564544
+#define ASUS_WMI_METHODID_INIT         0x54494E49
+#define ASUS_WMI_DEVID_ALS_ENABLE      0x00050001
+#define ASUS_WMI_DEVID_CPU_FAN_CTRL    0x00110013
+#define ASUS_WMI_DEVID_RSOC            0x00120057
+#define ASUS_WMI_DSTS_PRESENCE_BIT     0x00010000
+#define ASUS_WMI_MGMT_GUID             "97845ED0-4E6D-11DE-8A39-0800200C9A66"
 
 #define kDeliverNotifications "RM,deliverNotifications"
-enum {
-    kKeyboardSetTouchStatus = iokit_vendor_specific_msg(100), // set disable/enable touchpad (data is bool*)
-    kKeyboardGetTouchStatus = iokit_vendor_specific_msg(101), // get disable/enable touchpad (data is bool*)
-    kKeyboardKeyPressTime = iokit_vendor_specific_msg(110),   // notify of timestamp a non-modifier key was pressed (data is uint64_t*)
-};
 
-enum {
-    kevKeyboardBacklight = 1,
-    kevAirplaneMode = 2,
-    kevSleep = 3,
-    kevTouchpad = 4,
-};
+#define AsusSMCEventCode 0x8102
 
 class AsusSMC : public IOService {
     OSDeclareDefaultStructors(AsusSMC)
 
-    /**
-     *  Registered plugin instance
-     */
     VirtualSMCAPI::Plugin vsmcPlugin {
         xStringify(PRODUCT_NAME),
         parseModuleVersion(xStringify(MODULE_VERSION)),
@@ -73,149 +40,132 @@ class AsusSMC : public IOService {
     };
 
 public:
-    bool init(OSDictionary *dictionary = 0) override;
+    bool init(OSDictionary *dictionary) override;
     bool start(IOService *provider) override;
     void stop(IOService *provider) override;
     IOService *probe(IOService *provider, SInt32 *score) override;
-    IOReturn message(UInt32 type, IOService *provider, void *argument) override;
+    IOReturn message(uint32_t type, IOService *provider, void *argument) override;
 
     void letSleep();
     void toggleAirplaneMode();
     void toggleTouchpad();
+    void toggleALS(bool state);
+    void toggleBatteryConservativeMode(bool state);
     void displayOff();
 
-protected:
-    OSDictionary *properties {nullptr};
+private:
+    struct guid_block {
+        char guid[16];
+        union {
+            char object_id[2];
+            struct {
+                uint8_t notify_id;
+                uint8_t reserved;
+            };
+        };
+        uint8_t instance_count;
+        uint8_t flags;
+    };
 
-    /**
-     *  Asus ATK device
-     */
-    IOACPIPlatformDevice *atkDevice {nullptr};
+    struct wmi_args {
+        uint32_t arg0;
+        uint32_t arg1;
+    } __packed;
 
-    /**
-     *  Current lux value obtained from ACPI
-     */
-    _Atomic(uint32_t) currentLux = ATOMIC_VAR_INIT(0);
+    enum {
+        kKeyboardSetTouchStatus = iokit_vendor_specific_msg(100), // set disable/enable touchpad (data is bool*)
+        kKeyboardGetTouchStatus = iokit_vendor_specific_msg(101), // get disable/enable touchpad (data is bool*)
+        kKeyboardKeyPressTime = iokit_vendor_specific_msg(110),   // notify of timestamp a non-modifier key was pressed (data is uint64_t*)
+    };
 
-    /**
-     *  Supported ALS bits
-     */
-    ALSForceBits forceBits;
+    enum {
+        kDaemonKeyboardBacklight = 1,
+        kDaemonAirplaneMode = 2,
+        kDaemonSleep = 3,
+        kDaemonTouchpad = 4,
+    };
 
-    /**
-     *  VirtualSMC service registration notifier
-     */
-    IONotifier *vsmcNotifier {nullptr};
-
-    /**
-     *  A workloop in charge of handling timer events with requests.
-     */
-    IOWorkLoop *workloop {nullptr};
-
-    /**
-     *  Executes an action on the driver's work-loop
-     */
-    IOCommandGate *command_gate {nullptr};
-
-    /**
-     *  Workloop timer event source for status updates
-     */
-    IOTimerEventSource *poller {nullptr};
-
-    /**
-     *  Interrupt submission timeout
-     */
     static constexpr uint32_t SensorUpdateTimeoutMS {1000};
 
-    /**
-     *  Send commands to user-space daemon
-     */
-    KernEventServer kev;
+    static constexpr uint8_t NOTIFY_BRIGHTNESS_UP_MIN = 0x10;
+    static constexpr uint8_t NOTIFY_BRIGHTNESS_UP_MAX = 0x1F;
 
-    /**
-     *  Virtual keyboard device
-     */
-    VirtualAppleKeyboard *_virtualKBrd {nullptr};
+    static constexpr uint8_t NOTIFY_BRIGHTNESS_DOWN_MIN = 0x20;
+    static constexpr uint8_t NOTIFY_BRIGHTNESS_DOWN_MAX = 0x2F;
+
+    char wmi_method[5];
+    int wmi_parse_guid(const char *in, char *out);
+    int wmi_evaluate_method(uint32_t method_id, uint32_t arg0, uint32_t arg1);
+    bool wmi_dev_is_present(uint32_t dev_id);
+    void parse_WDG();
+
+    void initATKDevice();
+    void initALSDevice();
+    void initEC0Device();
+    void initBattery();
+    void initVirtualKeyboard();
+
+    void startATKDevice();
+    
+    bool refreshALS(bool post);
+    bool refreshFan();
+    bool setFanSpeed();
+
+    static constexpr uint32_t FTA1[] = { 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 0xFF };
+    static constexpr uint32_t FTA2[] = { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 160, 185, 205, 225, 245, 250, 255 };
+    static constexpr uint32_t FCTU = 2;
+    static constexpr uint32_t FCTD = 5;
+    static_assert(arrsize(FTA1) == arrsize(FTA2), "FTA1 and FTA2 size mismatch");
+
+    uint32_t FHST[arrsize(FTA1)] = {};
+    uint32_t FIDX {0}, FNUM {0}, FSUM {0}, FLST {0xff}, FCNT {0};
+
+    void handleMessage(int code);
+
+    IOACPIPlatformDevice *atkDevice {nullptr};
+    IOACPIPlatformDevice *alsDevice {nullptr};
+    IOACPIPlatformDevice *ec0Device {nullptr};
+    VirtualAppleKeyboard *kbdDevice {nullptr};
+
+    ALSForceBits forceBits;
+    _Atomic(uint32_t) currentLux = ATOMIC_VAR_INIT(0);
+    _Atomic(uint16_t) currentFanSpeed = ATOMIC_VAR_INIT(0);
+
+    IONotifier *vsmcNotifier {nullptr};
+
+    IOWorkLoop *workloop {nullptr};
+    IOCommandGate *command_gate {nullptr};
+    IOTimerEventSource *poller {nullptr};
+
+    KernEventServer kev;
 
     consumer_input csmrreport;
     apple_vendor_top_case_input tcreport;
 
-    /**
-     *  Touchpad enabled status
-     */
-    bool touchpadEnabled {true};
-
-    /**
-     *  Keyboard backlight availability
-     */
     bool hasKeybrdBLight {false};
-
-    /**
-     *  Direct ACPI messaging support
-     *  Originally, receiving ACPI messages takes several unnecessary steps (thanks, ASUS!)
-     *  By patching method IANE in DSDT, we can avoid those steps
-     */
     bool directACPImessaging {false};
-
-    /**
-     *  ALS availability
-     */
-    bool hasALSensor {false};
-
-    /**
-     *  ALS enabled status
-     */
-    bool isALSenabled {false};
-
-    /**
-     *  Backlight status (Fn+F7)
-     */
+    bool isALSEnabled {true};
+    bool isTouchpadEnabled {true};
     bool isPanelBackLightOn {true};
+    bool isFanEnabled {false};
+    bool isFanModEnabled {false};
+    bool isBatteryRSOCAvailable {false};
 
-    /**
-     *  Handle message from ATK
-     */
-    void handleMessage(int code);
+    lksb_vector LKSBCallbacks;
+    IOLock *lksbLock {nullptr};
+    void addLKSBConsumer(lksbCallback callback, OSObject *consumer);
 
-    /**
-     *  Check ALS and keyboard backlight availability
-     */
-    void checkATK();
-
-    /**
-     *  Enable/Disable ALS sensor
-     */
-    void toggleALS(bool state);
-
-    /**
-     *  Brightness
-     */
-    UInt32 panelBrightnessLevel {16};
+    uint32_t panelBrightnessLevel {16};
     char backlightEntry[1000];
+
     int checkBacklightEntry();
     int findBacklightEntry();
-
-    /**
-     *  Reading AppleBezel Values from Apple Backlight Panel driver for controlling the bezel levels
-     */
     void readPanelBrightnessValue();
 
-    /**
-     *  Initialize virtual HID keyboard
-     */
-    void initVirtualKeyboard();
-
-    /**
-     *  Simulate keyboard events, taken from Karabiner-Elements
-     */
     IOReturn postKeyboardInputReport(const void *report, uint32_t reportSize);
-
     void dispatchCSMRReport(int code, int loop = 1);
     void dispatchTCReport(int code, int loop = 1);
 
-    /**
-     *  Send notifications to 3rd-party drivers (eg. VoodooI2C)
-     */
     IONotifier *_publishNotify {nullptr};
     IONotifier *_terminateNotify {nullptr};
     OSSet *_notificationServices {nullptr};
@@ -225,32 +175,8 @@ protected:
     void dispatchMessageGated(int *message, void *data);
     void dispatchMessage(int message, void *data);
 
-    /**
-     *  HID drivers
-     */
-    OSSet *_hidDrivers {nullptr};
-
-    /**
-     *  Register ourself as a VirtualSMC plugin
-     */
     void registerVSMC(void);
-
-    /**
-     *  Submit the keys to received VirtualSMC service.
-     *
-     *  @param sensors   AsusSMC service
-     *  @param refCon    reference
-     *  @param vsmc      VirtualSMC service
-     *  @param notifier  created notifier
-     */
     static bool vsmcNotificationHandler(void *sensors, void *refCon, IOService *vsmc, IONotifier *notifier);
-
-    /**
-     *  Refresh sensor values to inform macOS with light changes
-     *
-     *  @param post  post an SMC notification
-     */
-    bool refreshSensor(bool post);
 };
 
 #endif //_AsusSMC_hpp

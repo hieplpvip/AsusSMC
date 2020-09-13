@@ -100,7 +100,7 @@ IOReturn VirtualAppleKeyboard::newReportDescriptor(IOMemoryDescriptor **descript
 
 IOReturn VirtualAppleKeyboard::getReport(IOMemoryDescriptor *report, IOHIDReportType reportType, IOOptionBits options) {
     uint8_t report_id = options & 0xff;
-    OSData* get_buffer = OSData::withCapacity(1);
+    OSData *get_buffer = OSData::withCapacity(1);
 
     if (report_id == 0xbf) {
         uint8_t buffer[] = {0x00, 0x01, 0x00, 0x00, 0x00, 0x20, 0x02, 0x00};
@@ -113,42 +113,38 @@ IOReturn VirtualAppleKeyboard::getReport(IOMemoryDescriptor *report, IOHIDReport
     return kIOReturnSuccess;
 }
 
-OSString* VirtualAppleKeyboard::newManufacturerString() const {
+OSString *VirtualAppleKeyboard::newManufacturerString() const {
     return OSString::withCString("Apple Inc.");
 }
 
-OSString* VirtualAppleKeyboard::newProductString() const {
-    return OSString::withCString("Apple Internal Keyboard");
+OSString *VirtualAppleKeyboard::newProductString() const {
+    return OSString::withCString("Virtual Apple Keyboard");
 }
 
-OSString* VirtualAppleKeyboard::newTransportString() const {
-    return OSString::withCString("SPI");
-}
-
-OSNumber* VirtualAppleKeyboard::newVendorIDNumber() const {
+OSNumber *VirtualAppleKeyboard::newVendorIDNumber() const {
     return OSNumber::withNumber(0x5ac, 32);
 }
 
-OSNumber* VirtualAppleKeyboard::newProductIDNumber() const {
+OSNumber *VirtualAppleKeyboard::newProductIDNumber() const {
     return OSNumber::withNumber(0x276, 32);
 }
 
-OSNumber* VirtualAppleKeyboard::newLocationIDNumber() const {
+OSNumber *VirtualAppleKeyboard::newLocationIDNumber() const {
     return OSNumber::withNumber(0x1000000, 32);
 }
 
-OSNumber* VirtualAppleKeyboard::newCountryCodeNumber() const {
+OSNumber *VirtualAppleKeyboard::newCountryCodeNumber() const {
     return OSNumber::withNumber(0x21, 32);
 }
 
-OSNumber* VirtualAppleKeyboard::newVersionNumber() const {
+OSNumber *VirtualAppleKeyboard::newVersionNumber() const {
     return OSNumber::withNumber(0x895, 32);
 }
 
-OSNumber* VirtualAppleKeyboard::newPrimaryUsagePageNumber() const {
+OSNumber *VirtualAppleKeyboard::newPrimaryUsagePageNumber() const {
     return OSNumber::withNumber(kHIDPage_GenericDesktop, 32);
 }
 
-OSNumber* VirtualAppleKeyboard::newPrimaryUsageNumber() const {
+OSNumber *VirtualAppleKeyboard::newPrimaryUsageNumber() const {
     return OSNumber::withNumber(kHIDUsage_GD_Keyboard, 32);
 }

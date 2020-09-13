@@ -3,7 +3,7 @@
 #for how to use
 
 # Replacing method _Q12 for F9 key to work
-into Method label _Q12 replace_content begin 
+into Method label _Q12 replace_content begin
     If (ATKP)\n
     {\n
         \_SB.ATKD.IANE (0x6B)\n

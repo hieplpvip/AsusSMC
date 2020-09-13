@@ -6,7 +6,7 @@
 //
 
 #include "KernEventServer.hpp"
-#include <VirtualSMCSDK/kern_vsmcapi.hpp>
+#include <Headers/kern_util.hpp>
 
 bool KernEventServer::setVendorID(const char *vendorCode) {
     if (KERN_SUCCESS != kev_vendor_code_find(vendorCode, &vendorID)) {
@@ -52,7 +52,7 @@ bool KernEventServer::sendMessage(int type, int x, int y) {
     kEventMsg.dv[2].data_ptr = &y;
 
     if (KERN_SUCCESS != kev_msg_post(&kEventMsg)) {
-        DBGLOG("kevserver", "sendMessage error\n");
+        DBGLOG("kevserver", "sendMessage error");
         return false;
     }
     return true;

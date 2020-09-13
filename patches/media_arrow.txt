@@ -3,7 +3,7 @@
 #for how to use
 
 # Replacing method _Q6C for media left arrow key to work
-into Method label _Q6C replace_content begin 
+into Method label _Q6C replace_content begin
     If (ATKP)\n
     {\n
         \_SB.ATKD.IANE (0x40)\n
@@ -11,7 +11,7 @@ into Method label _Q6C replace_content begin
 end;
 
 # Replacing method _Q6D for media right arrow key to work
-into Method label _Q6D replace_content begin 
+into Method label _Q6D replace_content begin
     If (ATKP)\n
     {\n
         \_SB.ATKD.IANE (0x41)\n
@@ -19,7 +19,7 @@ into Method label _Q6D replace_content begin
 end;
 
 # Replacing method _Q6E for media up arrow key to work
-into Method label _Q6E replace_content begin 
+into Method label _Q6E replace_content begin
     If (ATKP)\n
     {\n
         \_SB.ATKD.IANE (0x43)\n
@@ -27,7 +27,7 @@ into Method label _Q6E replace_content begin
 end;
 
 # Replacing method _Q6F for media down arrow key to work
-into Method label _Q6F replace_content begin 
+into Method label _Q6F replace_content begin
     If (ATKP)\n
     {\n
         \_SB.ATKD.IANE (0x45)\n
