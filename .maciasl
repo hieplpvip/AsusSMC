@@ -4,8 +4,9 @@
 [kbl] Ivy Bridge	patches/kbl_ivybridge.txt
 [kbl] Haswell/Broadwell/Skylake	patches/kbl_broadwell.txt
 [kbl] Kaby Lake/Kaby Lake-R	patches/kbl_kabylake.txt
-[kbl] WhiskeyLake	patches/kbl_whiskeylake.txt
-[kbl] CoffeeLake	patches/kbl_coffeelake.txt
+[kbl] Whiskey Lake	patches/kbl_whiskeylake.txt
+[kbl] Coffee Lake	patches/kbl_coffeelake.txt
+[kbl] Ice Lake	patches/kbl_icelake.txt
 [fn] --> FN keys	patches/NullPatch.txt
 [fn] ALS toggle	patches/als_toggle.txt
 [fn] Media - arrow keys	patches/media_arrow.txt
