@@ -685,7 +685,10 @@ void AsusSMC::toggleAirplaneMode() {
 }
 
 void AsusSMC::toggleTouchpad() {
+    dispatchMessage(kKeyboardGetTouchStatus, &isTouchpadEnabled);
     isTouchpadEnabled = !isTouchpadEnabled;
+    dispatchMessage(kKeyboardSetTouchStatus, &isTouchpadEnabled);
+
     if (isTouchpadEnabled) {
         setProperty("IsTouchpadEnabled", true);
         DBGLOG("atk", "Enabled Touchpad");
@@ -693,8 +696,6 @@ void AsusSMC::toggleTouchpad() {
         setProperty("IsTouchpadEnabled", false);
         DBGLOG("atk", "Disabled Touchpad");
     }
-
-    dispatchMessage(kKeyboardSetTouchStatus, &isTouchpadEnabled);
 }
 
 void AsusSMC::toggleALS(bool state) {
