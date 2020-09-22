@@ -1,6 +1,12 @@
 AsusSMC Changelog
 =======================
 
+#### v1.4.1
+- Added MacKernelSDK with Xcode 12 compatibility
+- Drop experimental custom fan control code
+- Drop AsusHID as I couldn't make it work on Catalina and above. Please use ROG-HID by @black-dragon74
+- Improving touchpad toggling mechanism
+
 #### v1.4.0
 - Rework keyboard backlight mechanism. Users need to repatch DSDT. More specific, the line `^^KBLV = Arg0 / 16` must be removed.
 - Rework ambient light sensor mechanism (use WMI for toggling sensor; read value directly with method `_ALI`). DSDT patch is not needed anymore.
