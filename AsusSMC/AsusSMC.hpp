@@ -95,6 +95,7 @@ private:
     char wmi_method[5];
     int wmi_parse_guid(const char *in, char *out);
     int wmi_evaluate_method(uint32_t method_id, uint32_t arg0, uint32_t arg1);
+    int wmi_get_devstate(uint32_t dev_id);
     bool wmi_dev_is_present(uint32_t dev_id);
     void parse_WDG();
 
@@ -136,7 +137,7 @@ private:
     bool isALSEnabled {true};
     bool isTouchpadEnabled {true};
     bool isPanelBackLightOn {true};
-    bool isFanEnabled {false};
+    bool isTACHAvailable {false};
     bool isBatteryRSOCAvailable {false};
 
     lksb_vector LKSBCallbacks;

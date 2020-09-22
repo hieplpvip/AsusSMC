@@ -223,6 +223,10 @@ int AsusSMC::wmi_evaluate_method(uint32_t method_id, uint32_t arg0, uint32_t arg
     return val;
 }
 
+int AsusSMC::wmi_get_devstate(uint32_t dev_id) {
+    return wmi_evaluate_method(ASUS_WMI_METHODID_DSTS, dev_id, 0);
+}
+
 bool AsusSMC::wmi_dev_is_present(uint32_t dev_id) {
     int status = wmi_evaluate_method(ASUS_WMI_METHODID_DSTS, dev_id, 0);
     return status != -1 && (status & ASUS_WMI_DSTS_PRESENCE_BIT);
@@ -313,12 +317,12 @@ void AsusSMC::initALSDevice() {
 }
 
 void AsusSMC::initEC0Device() {
-    isFanEnabled = true;
+    isTACHAvailable = true;
 
     auto dict = IOService::nameMatching("AppleACPIPlatformExpert");
     if (!dict) {
         SYSLOG("ec0", "WTF? Failed to create matching dictionary");
-        isFanEnabled = false;
+        isTACHAvailable = false;
         return;
     }
 
@@ -327,7 +331,7 @@ void AsusSMC::initEC0Device() {
 
     if (!acpi) {
         SYSLOG("ec0", "WTF? No ACPI");
-        isFanEnabled = false;
+        isTACHAvailable = false;
         return;
     }
 
@@ -336,7 +340,7 @@ void AsusSMC::initEC0Device() {
     dict = IOService::nameMatching("PNP0C09");
     if (!dict) {
         SYSLOG("ec0", "WTF? Failed to create matching dictionary");
-        isFanEnabled = false;
+        isTACHAvailable = false;
         return;
     }
 
@@ -345,7 +349,7 @@ void AsusSMC::initEC0Device() {
 
     if (!deviceIterator) {
         SYSLOG("ec0", "No iterator");
-        isFanEnabled = false;
+        isTACHAvailable = false;
         return;
     }
 
@@ -354,13 +358,13 @@ void AsusSMC::initEC0Device() {
 
     if (!ec0Device) {
         SYSLOG("ec0", "PNP0C09 device not found");
-        isFanEnabled = false;
+        isTACHAvailable = false;
         return;
     }
 
     if (ec0Device->validateObject("TACH") != kIOReturnSuccess || !refreshFan()) {
         SYSLOG("ec0", "No functional method TACH on EC0 device");
-        isFanEnabled = false;
+        isTACHAvailable = false;
         return;
     }
 
@@ -448,26 +452,32 @@ bool AsusSMC::refreshALS(bool post) {
 }
 
 bool AsusSMC::refreshFan() {
-    if (!ec0Device || !isFanEnabled) {
-        return false;
-    }
+    uint32_t speed = 10000;
 
-    uint32_t speed;
+    if (isTACHAvailable) {
+        OSNumber *arg = OSNumber::withNumber(static_cast<uint32_t>(0), 32);
+        IOReturn ret = ec0Device->evaluateInteger("TACH", &speed, (OSObject **)&arg, 1);
+        arg->release();
 
-    OSNumber *arg = OSNumber::withNumber(static_cast<uint32_t>(0), 32);
-    IOReturn ret = ec0Device->evaluateInteger("TACH", &speed, (OSObject **)&arg, 1);
-    arg->release();
-
-    if (ret != kIOReturnSuccess) {
-        DBGLOG("fan", "read fan speed failed");
-        speed = 10000;
+        if (ret != kIOReturnSuccess) {
+            DBGLOG("fan", "read fan speed using TACH failed");
+            speed = 10000;
+        }
+    } else {
+        int ret = wmi_get_devstate(ASUS_WMI_DEVID_CPU_FAN_CTRL);
+        if (ret == -1) {
+            DBGLOG("fan", "read fan speed using WMI failed");
+            speed = 10000;
+        } else {
+            speed = (ret & 0xffff) * 100;
+        }
     }
 
     atomic_store_explicit(&currentFanSpeed, speed, memory_order_release);
 
     DBGLOG("fan", "refreshFan speed %u", speed);
 
-    return ret == kIOReturnSuccess;
+    return speed != 10000;
 }
 
 void AsusSMC::handleMessage(int code) {
@@ -857,22 +867,20 @@ void AsusSMC::registerVSMC() {
         0, nullptr,
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
 
-    if (isFanEnabled) {
-        VirtualSMCAPI::addKey(KeyFNum, vsmcPlugin.data, VirtualSMCAPI::valueWithUint8(
-            1, nullptr,
-            SMC_KEY_ATTRIBUTE_CONST | SMC_KEY_ATTRIBUTE_READ));
+    VirtualSMCAPI::addKey(KeyFNum, vsmcPlugin.data, VirtualSMCAPI::valueWithUint8(
+        1, nullptr,
+        SMC_KEY_ATTRIBUTE_CONST | SMC_KEY_ATTRIBUTE_READ));
 
-        VirtualSMCAPI::addKey(KeyF0Ac, vsmcPlugin.data, VirtualSMCAPI::valueWithFp(
-            0, SmcKeyTypeFpe2, new F0Ac(&currentFanSpeed),
-            SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_FUNCTION));
+    VirtualSMCAPI::addKey(KeyF0Ac, vsmcPlugin.data, VirtualSMCAPI::valueWithFp(
+        0, SmcKeyTypeFpe2, new F0Ac(&currentFanSpeed),
+        SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_FUNCTION));
 
-        FanTypeDescStruct desc;
-        lilu_os_strncpy(desc.strFunction, "System Fan", DiagFunctionStrLen);
+    FanTypeDescStruct desc;
+    lilu_os_strncpy(desc.strFunction, "System Fan", DiagFunctionStrLen);
 
-        VirtualSMCAPI::addKey(KeyF0ID, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-            reinterpret_cast<const SMC_DATA *>(&desc), sizeof(desc), SmcKeyTypeFds, nullptr,
-            SMC_KEY_ATTRIBUTE_CONST | SMC_KEY_ATTRIBUTE_READ));
-    }
+    VirtualSMCAPI::addKey(KeyF0ID, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
+        reinterpret_cast<const SMC_DATA *>(&desc), sizeof(desc), SmcKeyTypeFds, nullptr,
+        SMC_KEY_ATTRIBUTE_CONST | SMC_KEY_ATTRIBUTE_READ));
 
     if (isBatteryRSOCAvailable) {
         VirtualSMCAPI::addKey(KeyBDVT, vsmcPlugin.data, VirtualSMCAPI::valueWithFlag(
