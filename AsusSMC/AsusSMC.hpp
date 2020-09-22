@@ -108,16 +108,6 @@ private:
     
     bool refreshALS(bool post);
     bool refreshFan();
-    bool setFanSpeed();
-
-    static constexpr uint32_t FTA1[] = { 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 0xFF };
-    static constexpr uint32_t FTA2[] = { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 160, 185, 205, 225, 245, 250, 255 };
-    static constexpr uint32_t FCTU = 2;
-    static constexpr uint32_t FCTD = 5;
-    static_assert(arrsize(FTA1) == arrsize(FTA2), "FTA1 and FTA2 size mismatch");
-
-    uint32_t FHST[arrsize(FTA1)] = {};
-    uint32_t FIDX {0}, FNUM {0}, FSUM {0}, FLST {0xff}, FCNT {0};
 
     void handleMessage(int code);
 
@@ -147,7 +137,6 @@ private:
     bool isTouchpadEnabled {true};
     bool isPanelBackLightOn {true};
     bool isFanEnabled {false};
-    bool isFanModEnabled {false};
     bool isBatteryRSOCAvailable {false};
 
     lksb_vector LKSBCallbacks;

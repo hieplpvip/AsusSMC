@@ -314,12 +314,11 @@ void AsusSMC::initALSDevice() {
 
 void AsusSMC::initEC0Device() {
     isFanEnabled = true;
-    isFanModEnabled = checkKernelArgument("-asussmcfanmod");
 
     auto dict = IOService::nameMatching("AppleACPIPlatformExpert");
     if (!dict) {
         SYSLOG("ec0", "WTF? Failed to create matching dictionary");
-        isFanEnabled = isFanModEnabled = false;
+        isFanEnabled = false;
         return;
     }
 
@@ -328,7 +327,7 @@ void AsusSMC::initEC0Device() {
 
     if (!acpi) {
         SYSLOG("ec0", "WTF? No ACPI");
-        isFanEnabled = isFanModEnabled = false;
+        isFanEnabled = false;
         return;
     }
 
@@ -337,7 +336,7 @@ void AsusSMC::initEC0Device() {
     dict = IOService::nameMatching("PNP0C09");
     if (!dict) {
         SYSLOG("ec0", "WTF? Failed to create matching dictionary");
-        isFanEnabled = isFanModEnabled = false;
+        isFanEnabled = false;
         return;
     }
 
@@ -346,7 +345,7 @@ void AsusSMC::initEC0Device() {
 
     if (!deviceIterator) {
         SYSLOG("ec0", "No iterator");
-        isFanEnabled = isFanModEnabled = false;
+        isFanEnabled = false;
         return;
     }
 
@@ -355,29 +354,17 @@ void AsusSMC::initEC0Device() {
 
     if (!ec0Device) {
         SYSLOG("ec0", "PNP0C09 device not found");
-        isFanEnabled = isFanModEnabled = false;
+        isFanEnabled = false;
         return;
     }
 
     if (ec0Device->validateObject("TACH") != kIOReturnSuccess || !refreshFan()) {
         SYSLOG("ec0", "No functional method TACH on EC0 device");
-        isFanEnabled = isFanModEnabled = false;
-        return;
-    }
-
-    if (isFanModEnabled && ec0Device->validateObject("ST98") != kIOReturnSuccess) {
-        SYSLOG("ec0", "No method ST98 on EC0 device");
-        isFanModEnabled = false;
+        isFanEnabled = false;
         return;
     }
 
     SYSLOG("ec0", "Found EC0 Device %s", ec0Device->getName());
-
-    if (isFanModEnabled) {
-        setProperty("IsFanSpeedModSupported", kOSBooleanTrue);
-    } else {
-        setProperty("IsFanSpeedReadSupported", kOSBooleanTrue);
-    }
 }
 
 void AsusSMC::initBattery() {
@@ -481,67 +468,6 @@ bool AsusSMC::refreshFan() {
     DBGLOG("fan", "refreshFan speed %u", speed);
 
     return ret == kIOReturnSuccess;
-}
-
-bool AsusSMC::setFanSpeed() {
-    if (!ec0Device || !isFanModEnabled) {
-        return false;
-    }
-
-    int temp = wmi_evaluate_method(0x4647574D, 0x00020013, 0x0);
-    if (temp == -1) {
-        temp = 60;
-    }
-
-    DBGLOG("fan", "setFanSpeed cpu temp %u", temp);
-
-    uint32_t newSUM = temp + FSUM - FHST[FIDX];
-    FHST[FIDX] = temp;
-    FSUM = newSUM;
-
-    FIDX++;
-    if (FIDX == arrsize(FHST)) {
-        FIDX = 0;
-    }
-
-    if (FNUM < arrsize(FHST)) {
-        ++FNUM;
-    }
-
-    uint32_t avgtemp = (FSUM + FNUM - 1) / FNUM; // round division up
-    DBGLOG("fan", "setFanSpeed average temp %u", avgtemp);
-
-    uint32_t idx = -1;
-    for (uint32_t i = 0, count = arrsize(FTA1); i < count; i++) {
-        if (FTA1[i] == avgtemp) {
-            idx = i;
-            break;
-        }
-    }
-    if (idx == -1) {
-        idx = arrsize(FTA1) - 1;
-    }
-
-    if (idx == FLST) {
-        FCNT = 0;
-        return true;
-    }
-
-    FCNT++;
-    uint32_t wait = (idx > FLST) ? ((idx - FLST) / FCTU) : ((FLST - idx) / FCTD);
-    if (FCNT >= wait) {
-        FLST = idx;
-        FCNT = 0;
-
-        uint32_t res;
-        OSNumber *arg = OSNumber::withNumber(static_cast<uint32_t>(FTA2[idx]), 32);
-        ec0Device->evaluateInteger("ST98", &res, (OSObject **)&arg, 1);
-        arg->release();
-
-        DBGLOG("fan", "setFanSpeed call ST98 %u", FTA2[idx]);
-    }
-
-    return true;
 }
 
 void AsusSMC::handleMessage(int code) {
@@ -971,7 +897,6 @@ bool AsusSMC::vsmcNotificationHandler(void *sensors, void *refCon, IOService *vs
                 if (ls) {
                     ls->refreshALS(true);
                     ls->refreshFan();
-                    ls->setFanSpeed();
                 }
             });
 
