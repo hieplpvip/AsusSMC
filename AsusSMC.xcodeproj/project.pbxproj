@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4C17428122C85E6E00469B7E /* HIDUsageTables.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C17428022C85E6E00469B7E /* HIDUsageTables.h */; };
-		4C3236382158FFBE00700256 /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FE6892156A3610074AD08 /* libkmod.a */; };
+		4CA82AB2251A07F300B02E1C /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA82AB1251A07F000B02E1C /* libkmod.a */; };
 		4C4FCB282326880C0010505E /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FCB272326880C0010505E /* CoreServices.framework */; };
 		4C4FCB2A232688390010505E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FCB29232688390010505E /* AppKit.framework */; };
 		4C4FE6252156A1690074AD08 /* AsusSMC.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6242156A1690074AD08 /* AsusSMC.hpp */; };
@@ -118,7 +118,6 @@
 		4C4FE6982156A3700074AD08 /* AppleSmc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleSmc.h; sourceTree = "<group>"; };
 		4C4FE6992156A3700074AD08 /* kern_keyvalue.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_keyvalue.hpp; sourceTree = "<group>"; };
 		4C4FE69A2156A3700074AD08 /* kern_value.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_value.hpp; sourceTree = "<group>"; };
-		4C4FE69B2156A3700074AD08 /* vsmcatomic.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vsmcatomic.h; sourceTree = "<group>"; };
 		4C4FE69C2156A3700074AD08 /* AppleSmcBridge.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AppleSmcBridge.hpp; sourceTree = "<group>"; };
 		4C4FE69E2156A3AD0074AD08 /* KernEventServer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = KernEventServer.cpp; sourceTree = "<group>"; };
 		4C4FE69F2156A3AD0074AD08 /* KernEventServer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = KernEventServer.hpp; sourceTree = "<group>"; };
@@ -135,6 +134,7 @@
 		4C4FE6BE2156A5820074AD08 /* KeyImplementations.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = KeyImplementations.cpp; sourceTree = "<group>"; };
 		4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = KeyImplementations.hpp; sourceTree = "<group>"; };
 		4C4FE6C22156AA810074AD08 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		4CA82AB1251A07F000B02E1C /* libkmod.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libkmod.a; path = MacKernelSDK/Library/x86_64/libkmod.a; sourceTree = "<group>"; };
 		4CAE3C5122C43E5600FCA35D /* AsusHIDDriver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AsusHIDDriver.cpp; sourceTree = "<group>"; };
 		4CAE3C5222C43E5600FCA35D /* AsusHIDDriver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AsusHIDDriver.hpp; sourceTree = "<group>"; };
 		4CDDD8C822E899F700CC38F4 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
@@ -145,7 +145,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4C3236382158FFBE00700256 /* libkmod.a in Frameworks */,
+				4CA82AB2251A07F300B02E1C /* libkmod.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -309,7 +309,6 @@
 				4C4FE6982156A3700074AD08 /* AppleSmc.h */,
 				4C4FE6992156A3700074AD08 /* kern_keyvalue.hpp */,
 				4C4FE69A2156A3700074AD08 /* kern_value.hpp */,
-				4C4FE69B2156A3700074AD08 /* vsmcatomic.h */,
 				4C4FE69C2156A3700074AD08 /* AppleSmcBridge.hpp */,
 			);
 			name = VirtualSMCSDK;
@@ -349,6 +348,7 @@
 		4C4FE6B42156A4A20074AD08 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4CA82AB1251A07F000B02E1C /* libkmod.a */,
 				4C4FCB29232688390010505E /* AppKit.framework */,
 				4C4FCB272326880C0010505E /* CoreServices.framework */,
 				4C4FE6B72156A4A70074AD08 /* CoreWLAN.framework */,
@@ -439,7 +439,7 @@
 		4C4FE6182156A1690074AD08 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1110;
+				LastUpgradeCheck = 1200;
 				ORGANIZATIONNAME = "Le Bao Hiep";
 				TargetAttributes = {
 					4C4FE6202156A1690074AD08 = {
@@ -556,6 +556,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -581,6 +582,9 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				KERNEL_EXTENSION_HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				KERNEL_FRAMEWORK_HEADERS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/MacKernelSDK/Library/x86_64";
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MODULE_VERSION = 1.4.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -614,6 +618,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -633,6 +638,9 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				KERNEL_EXTENSION_HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				KERNEL_FRAMEWORK_HEADERS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/MacKernelSDK/Library/x86_64";
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MODULE_VERSION = 1.4.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -644,6 +652,9 @@
 		4C4FE62C2156A1690074AD08 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_DEADCODE_DEADSTORES = NO;
+				CLANG_ANALYZER_DIVIDE_BY_ZERO = NO;
+				CLANG_ANALYZER_NULL_DEREFERENCE = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -656,16 +667,13 @@
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/",
 				);
 				INFOPLIST_FILE = Info.plist;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/Library",
-				);
 				MODULE_NAME = com.hieplpvip.AsusSMC;
 				MODULE_START = "$(PRODUCT_NAME)_kern_start";
 				MODULE_STOP = "$(PRODUCT_NAME)_kern_stop";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-inconsistent-missing-override";
 				PRODUCT_BUNDLE_IDENTIFIER = com.hieplpvip.AsusSMC;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Debug;
@@ -685,10 +693,6 @@
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/",
 				);
 				INFOPLIST_FILE = Info.plist;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/Library",
-				);
 				MODULE_NAME = com.hieplpvip.AsusSMC;
 				MODULE_START = "$(PRODUCT_NAME)_kern_start";
 				MODULE_STOP = "$(PRODUCT_NAME)_kern_stop";

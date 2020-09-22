@@ -672,7 +672,10 @@ void AsusSMC::addLKSBConsumer(lksbCallback callback, OSObject *consumer) {
     pcall->second = consumer;
 
     IOLockLock(lksbLock);
-    LKSBCallbacks.push_back(pcall);
+    if (!LKSBCallbacks.push_back(pcall)) {
+        SYSLOG("lksb", "failed to store lksb callback");
+        stored_pair<lksbCallback, OSObject *>::deleter(pcall);
+    }
     IOLockUnlock(lksbLock);
 }
 

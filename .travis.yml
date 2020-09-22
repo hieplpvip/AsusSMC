@@ -9,6 +9,7 @@ matrix:
 
     script:
       - curl -L https://github.com/alexey-lysiuk/macos-sdk/releases/download/10.12/MacOSX10.12.tar.bz2 -o /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.tar.bz2 && tar -xjf /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.tar.bz2 -C /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
+      - git clone https://github.com/acidanthera/MacKernelSDK
       - src=$(/usr/bin/curl -Lfs https://raw.githubusercontent.com/hieplpvip/AsusSMC/master/Scripts/bootstrap.sh) && eval "$src" || exit 1
       - xcodebuild -configuration Debug -sdk macosx10.12
       - xcodebuild -configuration Release -sdk macosx10.12
@@ -24,11 +25,23 @@ matrix:
         tags: true
 
   - os: osx
+    name: "Analyze Clang"
+    osx_image: xcode11
+    compiler: clang
+
+    script:
+      - git clone https://github.com/acidanthera/MacKernelSDK
+      - src=$(/usr/bin/curl -Lfs https://raw.githubusercontent.com/hieplpvip/AsusSMC/master/Scripts/bootstrap.sh) && eval "$src" || exit 1
+      - xcodebuild analyze -quiet -configuration Debug CLANG_ANALYZER_OUTPUT=plist-html CLANG_ANALYZER_OUTPUT_DIR="$(pwd)/clang-analyze" && [ "$(find clang-analyze -name "*.html")" = "" ]
+      - xcodebuild analyze -quiet -configuration Release CLANG_ANALYZER_OUTPUT=plist-html CLANG_ANALYZER_OUTPUT_DIR="$(pwd)/clang-analyze" && [ "$(find clang-analyze -name "*.html")" = "" ]
+
+  - os: osx
     name: "Analyze Coverity"
     osx_image: xcode10.2
     compiler: clang
 
     before_install:
+      - git clone https://github.com/acidanthera/MacKernelSDK
       - curl -Ls https://entrust.com/root-certificates/entrust_l1k.cer -o ~/entrust_l1k.crt || exit 1
       - curl -LS https://curl.haxx.se/ca/cacert.pem -o ~/cacert.pem || exit 1
       - cat ~/entrust_l1k.crt >> ~/cacert.pem || exit 1
