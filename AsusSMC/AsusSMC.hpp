@@ -10,7 +10,6 @@
 
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOCommandGate.h>
-#include "AsusHIDDriver.hpp"
 #include "HIDReport.hpp"
 #include "HIDUsageTables.h"
 #include "VirtualAppleKeyboard.hpp"

@@ -97,7 +97,6 @@ bool AsusSMC::start(IOService *provider) {
         return false;
     }
 
-    setProperty("AsusSMCCore", true);
     setProperty("IsTouchpadEnabled", true);
     setProperty("Copyright", "Copyright © 2018-2020 Le Bao Hiep. All rights reserved.");
 
@@ -161,35 +160,6 @@ IOReturn AsusSMC::message(uint32_t type, IOService *provider, void *argument) {
                 arg->release();
                 handleMessage(res);
             }
-            break;
-        case kHIDAdd:
-            DBGLOG("atk", "Connected with HID driver");
-            setProperty("HIDKeyboardExist", true);
-            addLKSBConsumer([](const uint16_t &value, OSObject *consumer) {
-                auto hid = OSDynamicCast(AsusHIDDriver, consumer);
-                hid->setKeyboardBacklight(value / 1024);
-            }, provider);
-            break;
-        case kHIDDelete:
-            DBGLOG("atk", "Disconnected with HID driver");
-            for (size_t i = 0; i < LKSBCallbacks.size(); i++) {
-                if (LKSBCallbacks[i]->second == provider) {
-                    LKSBCallbacks.erase(i);
-                    break;
-                }
-            }
-            break;
-        case kHIDSleep:
-            letSleep();
-            break;
-        case kHIDAirplaneMode:
-            toggleAirplaneMode();
-            break;
-        case kHIDTouchpadToggle:
-            toggleTouchpad();
-            break;
-        case kHIDDisplayOff:
-            displayOff();
             break;
         default:
             DBGLOG("atk", "Unexpected message: %u Type %x Provider %s", *((uint32_t *)argument), type, provider->getName());

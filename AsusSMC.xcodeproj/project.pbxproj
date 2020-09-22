@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		4C17428122C85E6E00469B7E /* HIDUsageTables.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C17428022C85E6E00469B7E /* HIDUsageTables.h */; };
-		4CA82AB2251A07F300B02E1C /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA82AB1251A07F000B02E1C /* libkmod.a */; };
 		4C4FCB282326880C0010505E /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FCB272326880C0010505E /* CoreServices.framework */; };
 		4C4FCB2A232688390010505E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C4FCB29232688390010505E /* AppKit.framework */; };
 		4C4FE6252156A1690074AD08 /* AsusSMC.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6242156A1690074AD08 /* AsusSMC.hpp */; };
@@ -23,8 +22,7 @@
 		4C4FE6BD2156A4FB0074AD08 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6BB2156A4FB0074AD08 /* main.m */; };
 		4C4FE6C02156A5820074AD08 /* KeyImplementations.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6BE2156A5820074AD08 /* KeyImplementations.cpp */; };
 		4C4FE6C12156A5820074AD08 /* KeyImplementations.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */; };
-		4CAE3C5322C43E5600FCA35D /* AsusHIDDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAE3C5122C43E5600FCA35D /* AsusHIDDriver.cpp */; };
-		4CAE3C5422C43E5600FCA35D /* AsusHIDDriver.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4CAE3C5222C43E5600FCA35D /* AsusHIDDriver.hpp */; };
+		4CA82AB2251A07F300B02E1C /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA82AB1251A07F000B02E1C /* libkmod.a */; };
 		4CC5A8C2244611E600AB526E /* com.hieplpvip.AsusSMCDaemon.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C4FE6BC2156A4FB0074AD08 /* com.hieplpvip.AsusSMCDaemon.plist */; };
 		4CC5A8C3244611EA00AB526E /* install_daemon.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C32364A2159051A00700256 /* install_daemon.sh */; };
 /* End PBXBuildFile section */
@@ -135,8 +133,6 @@
 		4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = KeyImplementations.hpp; sourceTree = "<group>"; };
 		4C4FE6C22156AA810074AD08 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		4CA82AB1251A07F000B02E1C /* libkmod.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libkmod.a; path = MacKernelSDK/Library/x86_64/libkmod.a; sourceTree = "<group>"; };
-		4CAE3C5122C43E5600FCA35D /* AsusHIDDriver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AsusHIDDriver.cpp; sourceTree = "<group>"; };
-		4CAE3C5222C43E5600FCA35D /* AsusHIDDriver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AsusHIDDriver.hpp; sourceTree = "<group>"; };
 		4CDDD8C822E899F700CC38F4 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -169,7 +165,6 @@
 				4CE3969E22CCAB5C00693C33 /* Global */,
 				4C4FE6232156A1690074AD08 /* AsusSMC */,
 				4C4FE6AE2156A4730074AD08 /* AsusSMCDaemon */,
-				4CAE3C5022C43D2B00FCA35D /* AsusHID */,
 				4C4FE69D2156A3970074AD08 /* KernEventServer */,
 				4C4FE6A22156A4270074AD08 /* VirtualAppleKeyboard */,
 				4C4FE62E2156A2980074AD08 /* SDK */,
@@ -357,15 +352,6 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		4CAE3C5022C43D2B00FCA35D /* AsusHID */ = {
-			isa = PBXGroup;
-			children = (
-				4CAE3C5122C43E5600FCA35D /* AsusHIDDriver.cpp */,
-				4CAE3C5222C43E5600FCA35D /* AsusHIDDriver.hpp */,
-			);
-			path = AsusHID;
-			sourceTree = "<group>";
-		};
 		4CE3969E22CCAB5C00693C33 /* Global */ = {
 			isa = PBXGroup;
 			children = (
@@ -382,7 +368,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4CAE3C5422C43E5600FCA35D /* AsusHIDDriver.hpp in Headers */,
 				4C4FE6A82156A4340074AD08 /* HIDReport.hpp in Headers */,
 				4C4FE6A12156A3AD0074AD08 /* KernEventServer.hpp in Headers */,
 				4C17428122C85E6E00469B7E /* HIDUsageTables.h in Headers */,
@@ -507,7 +492,6 @@
 			files = (
 				4C4FE6272156A1690074AD08 /* AsusSMC.cpp in Sources */,
 				4C4FE6C02156A5820074AD08 /* KeyImplementations.cpp in Sources */,
-				4CAE3C5322C43E5600FCA35D /* AsusHIDDriver.cpp in Sources */,
 				4C4FE6A62156A4340074AD08 /* VirtualAppleKeyboard.cpp in Sources */,
 				4C4FE6A02156A3AD0074AD08 /* KernEventServer.cpp in Sources */,
 			);
