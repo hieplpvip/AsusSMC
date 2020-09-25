@@ -56,5 +56,5 @@ matrix:
           description: "AsusSMC"
         notification_email: $NOTIFICATION_EMAIL
         build_command_prepend: "src=$(/usr/bin/curl -Lfs https://raw.githubusercontent.com/hieplpvip/AsusSMC/master/Scripts/bootstrap.sh) && eval \"$src\" || exit 1 ; src=$(/usr/bin/curl -Lfs https://raw.githubusercontent.com/acidanthera/Lilu/master/Lilu/Scripts/covstrap.sh) && eval \"$src\" || exit 1"
-        build_command: "xcodebuild -configuration Release
+        build_command: "xcodebuild -configuration Release"
         branch_pattern: ^(master|dev)$

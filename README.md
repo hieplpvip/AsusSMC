@@ -5,7 +5,7 @@
 ![GitHub repo size](https://img.shields.io/github/repo-size/hieplpvip/AsusSMC.svg?color=blue)
 [![Project license](https://img.shields.io/github/license/hieplpvip/AsusSMC.svg?color=blue)](https://github.com/hieplpvip/AsusSMC/blob/master/LICENSE.md)
 [![GitHub issues](https://img.shields.io/github/issues/hieplpvip/AsusSMC.svg)](https://github.com/hieplpvip/AsusSMC/issues)
-[![Build Status](https://travis-ci.org/hieplpvip/AsusSMC.svg?branch=master)](https://travis-ci.org/hieplpvip/AsusSMC)
+[![Build Status](https://travis-ci.com/hieplpvip/AsusSMC.svg?branch=master)](https://travis-ci.com/hieplpvip/AsusSMC)
 [![Scan Status](https://scan.coverity.com/projects/18304/badge.svg)](https://scan.coverity.com/projects/18304)
 [![Gitter chat](https://img.shields.io/gitter/room/nwjs/nw.js.svg?colorB=ed1965)](https://gitter.im/hieplpvip/AsusSMC)
 [![Donate with PayPal](https://img.shields.io/badge/paypal-donate-red.svg)](https://paypal.me/lebhiep)
