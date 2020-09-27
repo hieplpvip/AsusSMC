@@ -97,20 +97,14 @@
 		4C4FE6802156A3610074AD08 /* xcore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = xcore.h; sourceTree = "<group>"; };
 		4C4FE6812156A3610074AD08 /* platform.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = platform.h; sourceTree = "<group>"; };
 		4C4FE6822156A3610074AD08 /* kern_patcher.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_patcher.hpp; sourceTree = "<group>"; };
-		4C4FE6842156A3610074AD08 /* LiluVariables.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LiluVariables.h; sourceTree = "<group>"; };
 		4C4FE6852156A3610074AD08 /* kern_compat.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_compat.hpp; sourceTree = "<group>"; };
 		4C4FE6862156A3610074AD08 /* kern_api.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_api.hpp; sourceTree = "<group>"; };
 		4C4FE6872156A3610074AD08 /* kern_util.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_util.hpp; sourceTree = "<group>"; };
-		4C4FE6892156A3610074AD08 /* libkmod.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libkmod.a; sourceTree = "<group>"; };
 		4C4FE68B2156A3610074AD08 /* entry64.S */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = entry64.S; sourceTree = "<group>"; };
 		4C4FE68C2156A3620074AD08 /* build.tool */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.tool; sourceTree = "<group>"; };
 		4C4FE68D2156A3620074AD08 /* entry32.S */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = entry32.S; sourceTree = "<group>"; };
 		4C4FE68E2156A3620074AD08 /* wrappers.inc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.pascal; path = wrappers.inc; sourceTree = "<group>"; };
-		4C4FE6902156A3620074AD08 /* mac_framework.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mac_framework.h; sourceTree = "<group>"; };
-		4C4FE6912156A3620074AD08 /* mac_policy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mac_policy.h; sourceTree = "<group>"; };
-		4C4FE6922156A3620074AD08 /* _label.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _label.h; sourceTree = "<group>"; };
 		4C4FE6932156A3620074AD08 /* plugin_start.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = plugin_start.cpp; sourceTree = "<group>"; };
-		4C4FE6942156A3620074AD08 /* LegacyIOService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LegacyIOService.h; sourceTree = "<group>"; };
 		4C4FE6962156A3700074AD08 /* kern_smcinfo.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_smcinfo.hpp; sourceTree = "<group>"; };
 		4C4FE6972156A3700074AD08 /* kern_vsmcapi.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_vsmcapi.hpp; sourceTree = "<group>"; };
 		4C4FE6982156A3700074AD08 /* AppleSmc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleSmc.h; sourceTree = "<group>"; };
@@ -228,7 +222,6 @@
 				4C4FE6762156A3610074AD08 /* kern_disasm.hpp */,
 				4C4FE6772156A3610074AD08 /* capstone */,
 				4C4FE6822156A3610074AD08 /* kern_patcher.hpp */,
-				4C4FE6832156A3610074AD08 /* Guid */,
 				4C4FE6852156A3610074AD08 /* kern_compat.hpp */,
 				4C4FE6862156A3610074AD08 /* kern_api.hpp */,
 				4C4FE6872156A3610074AD08 /* kern_util.hpp */,
@@ -254,22 +247,11 @@
 			path = capstone;
 			sourceTree = "<group>";
 		};
-		4C4FE6832156A3610074AD08 /* Guid */ = {
-			isa = PBXGroup;
-			children = (
-				4C4FE6842156A3610074AD08 /* LiluVariables.h */,
-			);
-			path = Guid;
-			sourceTree = "<group>";
-		};
 		4C4FE6882156A3610074AD08 /* Library */ = {
 			isa = PBXGroup;
 			children = (
-				4C4FE6892156A3610074AD08 /* libkmod.a */,
 				4C4FE68A2156A3610074AD08 /* wrappers */,
-				4C4FE68F2156A3620074AD08 /* security */,
 				4C4FE6932156A3620074AD08 /* plugin_start.cpp */,
-				4C4FE6942156A3620074AD08 /* LegacyIOService.h */,
 			);
 			name = Library;
 			path = Lilu.kext/Contents/Resources/Library;
@@ -284,16 +266,6 @@
 				4C4FE68E2156A3620074AD08 /* wrappers.inc */,
 			);
 			path = wrappers;
-			sourceTree = "<group>";
-		};
-		4C4FE68F2156A3620074AD08 /* security */ = {
-			isa = PBXGroup;
-			children = (
-				4C4FE6902156A3620074AD08 /* mac_framework.h */,
-				4C4FE6912156A3620074AD08 /* mac_policy.h */,
-				4C4FE6922156A3620074AD08 /* _label.h */,
-			);
-			path = security;
 			sourceTree = "<group>";
 		};
 		4C4FE6952156A3700074AD08 /* VirtualSMCSDK */ = {
