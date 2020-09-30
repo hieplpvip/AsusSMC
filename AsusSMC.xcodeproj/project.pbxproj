@@ -167,7 +167,6 @@
 				4C4FE6C22156AA810074AD08 /* README.md */,
 				4CDDD8C822E899F700CC38F4 /* CHANGELOG.md */,
 				4C27D2BF218B647F0089409B /* LICENSE.md */,
-				4C4FE6282156A1690074AD08 /* Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
@@ -187,6 +186,7 @@
 				4C4FE6242156A1690074AD08 /* AsusSMC.hpp */,
 				4C4FE6BE2156A5820074AD08 /* KeyImplementations.cpp */,
 				4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */,
+				4C4FE6282156A1690074AD08 /* Info.plist */,
 			);
 			path = AsusSMC;
 			sourceTree = "<group>";
@@ -622,7 +622,7 @@
 					"$(PROJECT_DIR)/VirtualSMC.kext/Contents/Resources/",
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/",
 				);
-				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_FILE = AsusSMC/Info.plist;
 				MODULE_NAME = com.hieplpvip.AsusSMC;
 				MODULE_START = "$(PRODUCT_NAME)_kern_start";
 				MODULE_STOP = "$(PRODUCT_NAME)_kern_stop";
@@ -648,7 +648,7 @@
 					"$(PROJECT_DIR)/VirtualSMC.kext/Contents/Resources/",
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/",
 				);
-				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_FILE = AsusSMC/Info.plist;
 				MODULE_NAME = com.hieplpvip.AsusSMC;
 				MODULE_START = "$(PRODUCT_NAME)_kern_start";
 				MODULE_STOP = "$(PRODUCT_NAME)_kern_stop";

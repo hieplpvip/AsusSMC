@@ -2,9 +2,6 @@
 
 [![Github release](https://img.shields.io/github/release/hieplpvip/AsusSMC.svg?color=blue)](https://github.com/hieplpvip/AsusSMC/releases/latest)
 [![Github downloads](https://img.shields.io/github/downloads/hieplpvip/AsusSMC/total.svg?color=blue)](https://github.com/hieplpvip/AsusSMC/releases)
-![GitHub repo size](https://img.shields.io/github/repo-size/hieplpvip/AsusSMC.svg?color=blue)
-[![Project license](https://img.shields.io/github/license/hieplpvip/AsusSMC.svg?color=blue)](https://github.com/hieplpvip/AsusSMC/blob/master/LICENSE.md)
-[![GitHub issues](https://img.shields.io/github/issues/hieplpvip/AsusSMC.svg)](https://github.com/hieplpvip/AsusSMC/issues)
 [![Build Status](https://travis-ci.com/hieplpvip/AsusSMC.svg?branch=master)](https://travis-ci.com/hieplpvip/AsusSMC)
 [![Scan Status](https://scan.coverity.com/projects/18304/badge.svg)](https://scan.coverity.com/projects/18304)
 [![Gitter chat](https://img.shields.io/gitter/room/nwjs/nw.js.svg?colorB=ed1965)](https://gitter.im/hieplpvip/AsusSMC)
@@ -36,6 +33,3 @@ A VirtualSMC plugin provides native support for ALS, keyboard backlight and Fn k
 - [Objective-See](https://objective-see.com) for [kernel-userspace communication](https://objective-see.com/blog/blog_0x0B.html)
 - [tekezo](https://github.com/tekezo) for [VirtualHIDKeyboard](https://github.com/pqrs-org/Karabiner-VirtualHIDDevice/)
 - [williambj1](https://github.com/williambj1) for testing HID support
-
-## [Donate me](https://paypal.me/lebhiep)
-Any donation is highly appreciated!
