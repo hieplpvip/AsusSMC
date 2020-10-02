@@ -10,6 +10,7 @@
 
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOCommandGate.h>
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include "HIDReport.hpp"
 #include "HIDUsageTables.h"
 #include "VirtualAppleKeyboard.hpp"
@@ -132,17 +133,13 @@ private:
     consumer_input csmrreport;
     apple_vendor_top_case_input tcreport;
 
-    bool hasKeybrdBLight {false};
     bool directACPImessaging {false};
+    bool hasKeyboardBacklight {false};
     bool isALSEnabled {true};
     bool isTouchpadEnabled {true};
     bool isPanelBackLightOn {true};
     bool isTACHAvailable {false};
     bool isBatteryRSOCAvailable {false};
-
-    lksb_vector LKSBCallbacks;
-    IOLock *lksbLock {nullptr};
-    void addLKSBConsumer(lksbCallback callback, OSObject *consumer);
 
     uint32_t panelBrightnessLevel {16};
     char backlightEntry[1000];

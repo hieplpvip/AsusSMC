@@ -26,12 +26,6 @@ bool AsusSMC::init(OSDictionary *dict) {
     atomic_init(&currentLux, 0);
     atomic_init(&currentFanSpeed, 0);
 
-    lksbLock = IOLockAlloc();
-    if (!lksbLock) {
-        SYSLOG("lksb", "failed to allocate LKSB lock");
-        return false;
-    }
-
     return true;
 }
 
@@ -140,16 +134,16 @@ void AsusSMC::stop(IOService *provider) {
 
     OSSafeReleaseNULL(kbdDevice);
 
-    IOLockFree(lksbLock);
-    LKSBCallbacks.deinit();
-
     super::stop(provider);
     return;
 }
 
 IOReturn AsusSMC::message(uint32_t type, IOService *provider, void *argument) {
+    DBGLOG("atk", "Received message: %u Type %x Provider %s", *((uint32_t *)argument), type, provider ? provider->getName() : "unknown");
+
     switch (type) {
         case kIOACPIMessageDeviceNotification:
+        {
             if (directACPImessaging) {
                 handleMessage(*((uint32_t *)argument));
             } else {
@@ -161,9 +155,20 @@ IOReturn AsusSMC::message(uint32_t type, IOService *provider, void *argument) {
                 handleMessage(res);
             }
             break;
-        default:
-            DBGLOG("atk", "Unexpected message: %u Type %x Provider %s", *((uint32_t *)argument), type, provider->getName());
+        }
+
+        case kSetKeyboardBacklightMessage:
+        {
+            if (hasKeyboardBacklight) {
+                OSNumber *arg = OSNumber::withNumber(*((uint16_t *)argument) / 16, 16);
+                atkDevice->evaluateObject("SKBV", NULL, (OSObject **)&arg, 1);
+                arg->release();
+            }
             break;
+        }
+
+        default:
+            return kIOReturnInvalid;
     }
     return kIOReturnSuccess;
 }
@@ -404,18 +409,12 @@ void AsusSMC::startATKDevice() {
     // Check keyboard backlight support
     if (atkDevice->validateObject("SKBV") == kIOReturnSuccess) {
         SYSLOG("atk", "Keyboard backlight is supported");
-        hasKeybrdBLight = true;
-        addLKSBConsumer([](const uint16_t &value, OSObject *consumer) {
-            auto atk = OSDynamicCast(IOACPIPlatformDevice, consumer);
-            OSNumber *arg = OSNumber::withNumber(value / 16, 16);
-            atk->evaluateObject("SKBV", NULL, (OSObject **)&arg, 1);
-            arg->release();
-        }, atkDevice);
+        hasKeyboardBacklight = true;
     } else {
-        hasKeybrdBLight = false;
+        hasKeyboardBacklight = false;
         DBGLOG("atk", "Keyboard backlight is not supported");
     }
-    setProperty("IsKeyboardBacklightSupported", hasKeybrdBLight);
+    setProperty("IsKeyboardBacklightSupported", hasKeyboardBacklight);
 
     // Turn on ALS sensor
     toggleALS(true);
@@ -550,13 +549,13 @@ void AsusSMC::handleMessage(int code) {
             break;
 
         case 0xC5: // Keyboard Backlight Down
-            if (hasKeybrdBLight) {
+            if (hasKeyboardBacklight) {
                 dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationDown);
             }
             break;
 
         case 0xC4: // Keyboard Backlight Up
-            if (hasKeybrdBLight) {
+            if (hasKeyboardBacklight) {
                 dispatchTCReport(kHIDUsage_AV_TopCase_IlluminationUp);
             }
             break;
@@ -570,19 +569,6 @@ void AsusSMC::handleMessage(int code) {
     }
 
     DBGLOG("atk", "Received key %d(0x%x)", code, code);
-}
-
-void AsusSMC::addLKSBConsumer(lksbCallback callback, OSObject *consumer) {
-    auto *pcall = stored_pair<lksbCallback, OSObject *>::create();
-    pcall->first = callback;
-    pcall->second = consumer;
-
-    IOLockLock(lksbLock);
-    if (!LKSBCallbacks.push_back(pcall)) {
-        SYSLOG("lksb", "failed to store lksb callback");
-        stored_pair<lksbCallback, OSObject *>::deleter(pcall);
-    }
-    IOLockUnlock(lksbLock);
 }
 
 void AsusSMC::letSleep() {
@@ -856,7 +842,7 @@ void AsusSMC::registerVSMC() {
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
 
     VirtualSMCAPI::addKey(KeyLKSB, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&lkb), sizeof(lkb), SmcKeyTypeLkb, new SMCKBrdBLightValue(atkDevice, &LKSBCallbacks, lksbLock),
+        reinterpret_cast<const SMC_DATA *>(&lkb), sizeof(lkb), SmcKeyTypeLkb, new SMCKBrdBLightValue(this),
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
 
     VirtualSMCAPI::addKey(KeyLKSS, vsmcPlugin.data, VirtualSMCAPI::valueWithData(

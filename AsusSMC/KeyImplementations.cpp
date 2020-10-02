@@ -38,13 +38,9 @@ SMC_RESULT SMCKBrdBLightValue::update(const SMC_DATA *src)  {
 
     delete value;
 
-    IOLockLock(lksbLock);
-    for (size_t i = 0; i < callbacks->size(); i++) {
-        auto p = (*callbacks)[i];
-        p->first(tval, p->second);
-        DBGLOG("lksb", "callback %u consumer %p", i, p->second);
+    if (asusSMCInstance) {
+        asusSMCInstance->message(kSetKeyboardBacklightMessage, nullptr, &tval);
     }
-    IOLockUnlock(lksbLock);
 
     lilu_os_memcpy(data, src, size);
     return SmcSuccess;

@@ -9,8 +9,10 @@
 #ifndef KeyImplementations_hpp
 #define KeyImplementations_hpp
 
-#include <IOKit/acpi/IOACPIPlatformDevice.h>
+#include <IOKit/IOService.h>
 #include <VirtualSMCSDK/kern_vsmcapi.hpp>
+
+#define kSetKeyboardBacklightMessage 812002
 
 static constexpr SMC_KEY KeyAL   = SMC_MAKE_IDENTIFIER('A','L','!',' ');
 static constexpr SMC_KEY KeyALI0 = SMC_MAKE_IDENTIFIER('A','L','I','0');
@@ -48,15 +50,6 @@ typedef struct fanTypeDescStruct {
     uint8_t rsvd        {0}; // padding to get us to 16 bytes
     char    strFunction[DiagFunctionStrLen];
 } FanTypeDescStruct;
-
-template <typename T, typename Y=void *>
-using stored_pair = ppair<T, Y>;
-
-template <typename T, typename Y=void *>
-using stored_vector = evector<stored_pair<T, Y> *, stored_pair<T, Y>::deleter>;
-
-using lksbCallback = void (*)(const uint16_t &value, OSObject *consumer);
-using lksb_vector = stored_vector<lksbCallback, OSObject *>;
 
 class ALSForceBits : public VirtualSMCValue {
 public:
@@ -110,9 +103,7 @@ public:
 };
 
 class SMCKBrdBLightValue : public VirtualSMCValue {
-    IOACPIPlatformDevice *atkDevice {nullptr};
-    lksb_vector *callbacks {nullptr};
-    IOLock *lksbLock {nullptr};
+    IOService *asusSMCInstance {nullptr};
 
 protected:
     SMC_RESULT update(const SMC_DATA *src) override;
@@ -127,7 +118,7 @@ public:
         uint8_t val2 {1};
     };
 
-    SMCKBrdBLightValue(IOACPIPlatformDevice *atkDevice, lksb_vector *callbacks, IOLock *lksbLock): atkDevice(atkDevice), callbacks(callbacks), lksbLock(lksbLock) {}
+    SMCKBrdBLightValue(IOService *asusSMCInstance): asusSMCInstance(asusSMCInstance) {}
 };
 
 class F0Ac : public VirtualSMCValue {
