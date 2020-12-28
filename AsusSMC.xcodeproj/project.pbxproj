@@ -22,9 +22,9 @@
 		4C4FE6BD2156A4FB0074AD08 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6BB2156A4FB0074AD08 /* main.m */; };
 		4C4FE6C02156A5820074AD08 /* KeyImplementations.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C4FE6BE2156A5820074AD08 /* KeyImplementations.cpp */; };
 		4C4FE6C12156A5820074AD08 /* KeyImplementations.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 4C4FE6BF2156A5820074AD08 /* KeyImplementations.hpp */; };
-		4CA82AB2251A07F300B02E1C /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA82AB1251A07F000B02E1C /* libkmod.a */; };
 		4CC5A8C2244611E600AB526E /* com.hieplpvip.AsusSMCDaemon.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C4FE6BC2156A4FB0074AD08 /* com.hieplpvip.AsusSMCDaemon.plist */; };
 		4CC5A8C3244611EA00AB526E /* install_daemon.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C32364A2159051A00700256 /* install_daemon.sh */; };
+		6F8848702599D3DC00236875 /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA82AB1251A07F000B02E1C /* libkmod.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -135,7 +135,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4CA82AB2251A07F300B02E1C /* libkmod.a in Frameworks */,
+				6F8848702599D3DC00236875 /* libkmod.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -613,6 +613,7 @@
 				CLANG_ANALYZER_NULL_DEREFERENCE = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				EXCLUDED_ARCHS = arm64e;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"MODULE_VERSION=$(MODULE_VERSION)",
 					"PRODUCT_NAME=$(PRODUCT_NAME)",
@@ -639,6 +640,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				EXCLUDED_ARCHS = arm64e;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"MODULE_VERSION=$(MODULE_VERSION)",
 					"PRODUCT_NAME=$(PRODUCT_NAME)",
