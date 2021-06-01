@@ -613,6 +613,7 @@
 				CLANG_ANALYZER_NULL_DEREFERENCE = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1.4.2;
 				EXCLUDED_ARCHS = arm64e;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"MODULE_VERSION=$(MODULE_VERSION)",
@@ -624,6 +625,7 @@
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/",
 				);
 				INFOPLIST_FILE = AsusSMC/Info.plist;
+				MARKETING_VERSION = 1.4.2;
 				MODULE_NAME = com.hieplpvip.AsusSMC;
 				MODULE_START = "$(PRODUCT_NAME)_kern_start";
 				MODULE_STOP = "$(PRODUCT_NAME)_kern_stop";
@@ -640,6 +642,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1.4.2;
 				EXCLUDED_ARCHS = arm64e;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"MODULE_VERSION=$(MODULE_VERSION)",
@@ -651,6 +654,7 @@
 					"$(PROJECT_DIR)/Lilu.kext/Contents/Resources/",
 				);
 				INFOPLIST_FILE = AsusSMC/Info.plist;
+				MARKETING_VERSION = 1.4.2;
 				MODULE_NAME = com.hieplpvip.AsusSMC;
 				MODULE_START = "$(PRODUCT_NAME)_kern_start";
 				MODULE_STOP = "$(PRODUCT_NAME)_kern_stop";
