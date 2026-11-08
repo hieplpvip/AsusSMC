@@ -69,6 +69,24 @@ jobs:
           git clone --depth 1 https://github.com/acidanthera/MacKernelSDK
           test -f MacKernelSDK/Library/x86_64/libkmod.a
 
+      # The Fn-key diagnosis needs one ACPI table, so it is compiled here to
+      # prove the syntax before it reaches the user's EFI.
+      - name: Compile ACPI tables
+        run: |
+          set -euo pipefail
+          brew install acpica || brew upgrade acpica || true
+          iasl -v || /usr/local/bin/iasl -v
+
+          for d in ssdt; do
+            [ -d "$d" ] || continue
+            for f in "$d"/*.dsl; do
+              [ -f "$f" ] || continue
+              echo "compiling $f"
+              iasl -p "${f%.dsl}.aml" "$f"
+            done
+            ls -l "$d"/*.aml 2>/dev/null || true
+          done
+
       # Built through Xcode, not a hand-written link: the kext target runs
       # CreateKModInfo, and the kernel will not load an extension without the
       # resulting kmod_info object.
