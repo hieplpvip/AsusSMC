@@ -2,7 +2,7 @@
 //  KeyImplementations.hpp
 //  AsusSMC
 //
-//  Copyright © 2018-2020 Le Bao Hiep. All rights reserved.
+//  Copyright 漏 2018-2020 Le Bao Hiep. All rights reserved.
 //
 //  Ambient light sensor support is based on SMCLightSensor
 
@@ -24,32 +24,7 @@ static constexpr SMC_KEY KeyLKSB = SMC_MAKE_IDENTIFIER('L','K','S','B');
 static constexpr SMC_KEY KeyLKSS = SMC_MAKE_IDENTIFIER('L','K','S','S');
 static constexpr SMC_KEY KeyMSLD = SMC_MAKE_IDENTIFIER('M','S','L','D');
 
-static constexpr SMC_KEY KeyFNum = SMC_MAKE_IDENTIFIER('F','N','u','m');
-static constexpr SMC_KEY KeyF0ID = SMC_MAKE_IDENTIFIER('F','0','I','D');
-static constexpr SMC_KEY KeyF0Ac = SMC_MAKE_IDENTIFIER('F','0','A','c');
-
 static constexpr SMC_KEY KeyBDVT = SMC_MAKE_IDENTIFIER('B','D','V','T');
-
-typedef enum { FAN_PWM_TACH, FAN_RPM, PUMP_PWM, PUMP_RPM, FAN_PWM_NOTACH, EMPTY_PLACEHOLDER } FanType;
-
-typedef enum {
-    LEFT_LOWER_FRONT, CENTER_LOWER_FRONT, RIGHT_LOWER_FRONT,
-    LEFT_MID_FRONT,   CENTER_MID_FRONT,   RIGHT_MID_FRONT,
-    LEFT_UPPER_FRONT, CENTER_UPPER_FRONT, RIGHT_UPPER_FRONT,
-    LEFT_LOWER_REAR,  CENTER_LOWER_REAR,  RIGHT_LOWER_REAR,
-    LEFT_MID_REAR,    CENTER_MID_REAR,    RIGHT_MID_REAR,
-    LEFT_UPPER_REAR,  CENTER_UPPER_REAR,  RIGHT_UPPER_REAR
-} LocationType;
-
-static constexpr int32_t DiagFunctionStrLen = 12;
-
-typedef struct fanTypeDescStruct {
-    uint8_t type        {FAN_RPM};
-    uint8_t ui8Zone     {1};
-    uint8_t location    {LEFT_MID_REAR};
-    uint8_t rsvd        {0}; // padding to get us to 16 bytes
-    char    strFunction[DiagFunctionStrLen];
-} FanTypeDescStruct;
 
 class ALSForceBits : public VirtualSMCValue {
 public:
@@ -107,6 +82,9 @@ class SMCKBrdBLightValue : public VirtualSMCValue {
 
 protected:
     SMC_RESULT update(const SMC_DATA *src) override;
+    // Reads are tracked as well: if macOS never writes LKSB, the question
+    // becomes whether it even looks at these keys.
+    SMC_RESULT readAccess() override;
 
 public:
     struct PACKED lks {
@@ -121,14 +99,23 @@ public:
     SMCKBrdBLightValue(IOService *asusSMCInstance): asusSMCInstance(asusSMCInstance) {}
 };
 
-class F0Ac : public VirtualSMCValue {
-    _Atomic(uint16_t) *currentSpeed;
+/**
+ *  LKSS, the keyboard backlight state/capability key.
+ *
+ *  macOS reads this to decide whether the keyboard brightness control is
+ *  usable at all, so it is instrumented separately from LKSB.
+ */
+class SMCKBrdBLightState : public VirtualSMCValue {
+    IOService *asusSMCInstance {nullptr};
 
 protected:
     SMC_RESULT readAccess() override;
+    // Writes are counted as well: if macOS drives the keyboard backlight
+    // through LKSS instead of LKSB, this is where it would show up.
+    SMC_RESULT update(const SMC_DATA *src) override;
 
 public:
-    F0Ac(_Atomic(uint16_t) *currentSpeed) : currentSpeed(currentSpeed) {}
+    SMCKBrdBLightState(IOService *asusSMCInstance): asusSMCInstance(asusSMCInstance) {}
 };
 
 class BDVT : public VirtualSMCValue {
