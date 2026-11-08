@@ -708,23 +708,29 @@ void AsusSMC::initATKDevice() {
  */
 void AsusSMC::probeATKEventPath() {
     // Inject one harmless code every 5 seconds.
-    injectTicks++;
-    if (injectTicks >= 5) {
+    if (injectTicks++ >= 5) {
         injectTicks = 0;
 
-        OSObject *arg = OSNumber::withNumber(static_cast<uint32_t>(0xC6), 32);
-        IOReturn ret = atkDevice->evaluateInteger("IANE", &injectRet,
-                                                  (OSObject **)&arg, 1);
-        if (arg) {
-            arg->release();
+        // Same call shape the notification path above uses: evaluateInteger
+        // wants an array of argument objects, so the address of a single
+        // OSObject pointer is cast to OSObject ** - exactly as _WED is called
+        // in message(). Passing something else returns kIOReturnBadArgument
+        // (0xE00002C2), which is what the previous build reported.
+        OSNumber *injectArg = OSNumber::withNumber(static_cast<uint32_t>(0xC6), 32);
+        uint32_t injectValue = 0;
+        IOReturn injectStatus = atkDevice->evaluateInteger(
+            "IANE", &injectValue, (OSObject **)&injectArg, 1);
+        if (injectArg) {
+            injectArg->release();
         }
-        injectRet = (uint32_t)ret;
+        injectRet = (uint32_t)injectStatus;
+        injectValueOut = injectValue;
         injected = true;
     }
 
     // Dequeue: with direct messaging the code arrives via message(), otherwise
     // _WED(0xFF) pops it.
-    OSObject *wedArg = OSNumber::withNumber(static_cast<uint32_t>(0xFF), 32);
+    OSNumber *wedArg = OSNumber::withNumber(static_cast<uint32_t>(0xFF), 32);
     uint32_t val = 0;
     IOReturn wedRet = atkDevice->evaluateInteger("_WED", &val,
                                                  (OSObject **)&wedArg, 1);
@@ -732,14 +738,15 @@ void AsusSMC::probeATKEventPath() {
         wedArg->release();
     }
 
-    char rec[200];
+    char rec[220];
     snprintf(rec, sizeof(rec),
              "wedRet=0x%X wedVal=0x%X last=0x%X keys=%u notify=%u "
-             "inject=0x%X injRet=0x%X%s",
+             "injRet=0x%X injVal=0x%X%s",
              (unsigned)wedRet, (unsigned)val,
              (unsigned)lastKbdKey, (unsigned)kbdKeyCount,
              (unsigned)notifyCount,
-             (unsigned)0xC6, (unsigned)injectRet, injected ? "" : " (pending)");
+             (unsigned)injectRet, (unsigned)injectValueOut,
+             injected ? "" : " (pending)");
     setProperty("AsusSMCKeyPath", rec);
 }
 
