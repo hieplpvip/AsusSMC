@@ -260,6 +260,20 @@ IOReturn AsusSMC::message(uint32_t type, IOService *provider, void *argument) {
 
         case kIOACPIMessageDeviceNotification:
         {
+            // Every ACPI notification lands here, not just the key events.
+            // Counting them separately is what distinguishes "the firmware
+            // never notifies us at all" from "it notifies, but the codes are
+            // not what handleMessage expects".
+            notifyCount++;
+            {
+                char rec[96];
+                snprintf(rec, sizeof(rec), "notify=%u raw=0x%X direct=%d",
+                         (unsigned)notifyCount,
+                         argument ? (unsigned)*((uint32_t *)argument) : 0,
+                         directACPImessaging ? 1 : 0);
+                setProperty("AsusSMCNotify", rec);
+            }
+
             if (directACPImessaging) {
                 handleMessage(*((uint32_t *)argument));
             } else {
@@ -603,28 +617,47 @@ void AsusSMC::publishLKSAccess() {
 }
 
 void AsusSMC::parse_WDG() {
+    // Diagnostic: report what _WDG actually contains. Without this, a wrong
+    // WMI method name looks exactly like "the firmware never sends events",
+    // because every call quietly fails.
+    wmiMethodFound = false;
+
     OSObject *wdg;
     if (atkDevice->evaluateObject("_WDG", &wdg) != kIOReturnSuccess) {
         SYSLOG("wmi", "No method _WDG!");
+        setProperty("AsusSMCWDG", "no _WDG method");
         return;
     }
 
     OSData *data = OSDynamicCast(OSData, wdg);
     if (!data) {
         SYSLOG("guid", "Cast WDG error!");
+        setProperty("AsusSMCWDG", "cast failed");
         return;
     }
 
     int total = data->getLength() / sizeof(struct guid_block);
 
     char guid_string[37];
+    char diag[160];
+    snprintf(diag, sizeof(diag), "len=%d blocks=%d", (int)data->getLength(), total);
 
     for (int i = 0; i < total; i++) {
         struct guid_block *g = (struct guid_block *) data->getBytesNoCopy(i * sizeof(struct guid_block), sizeof(struct guid_block));
         wmi_parse_guid(g->guid, guid_string);
 
+        if (i == 0) {
+            snprintf(diag, sizeof(diag), "len=%d blocks=%d first=%s obj=%c%c",
+                     (int)data->getLength(), total, guid_string,
+                     g->object_id[0], g->object_id[1]);
+        }
+
         if (strncmp(guid_string, ASUS_WMI_MGMT_GUID, 36) == 0) {
             snprintf(wmi_method, 5, "WM%c%c", g->object_id[0], g->object_id[1]);
+            wmiMethodFound = true;
+            snprintf(diag, sizeof(diag), "len=%d blocks=%d matched=%s method=%s",
+                     (int)data->getLength(), total, guid_string, wmi_method);
+            setProperty("AsusSMCWDG", diag);
             DBGLOG("wmi", "parse_WDG found WMI method %s", wmi_method);
             return;
         }
@@ -633,10 +666,48 @@ void AsusSMC::parse_WDG() {
     // Couldn't find WMI method. Let's assume it's WMNB
     SYSLOG("wmi", "parse_WDG couldn't find WMI method");
     lilu_os_strncpy(wmi_method, "WMNB", 5);
+    snprintf(diag, sizeof(diag), "%s (no GUID match, assuming WMNB)", diag);
+    setProperty("AsusSMCWDG", diag);
 }
 
 void AsusSMC::initATKDevice() {
-    wmi_evaluate_method(ASUS_WMI_METHODID_INIT, 0, 0);
+    // Diagnostic: the return value decides everything downstream. ATKD.INIT
+    // sets ATKP = One, and every _Qxx handler in this DSDT is wrapped in
+    // `If (ATKP)`. If this call fails, no Fn key can ever produce an event,
+    // and the failure is otherwise completely silent.
+    int ret = wmi_evaluate_method(ASUS_WMI_METHODID_INIT, 0, 0);
+
+    char rec[128];
+    snprintf(rec, sizeof(rec), "INIT ret=%d method=%s guidMatched=%d",
+             ret, wmi_method, wmiMethodFound ? 1 : 0);
+    setProperty("AsusSMCInitATK", rec);
+    SYSLOG("atk", "ATKD.INIT -> %d (method %s, guid matched %d)",
+           ret, wmi_method, wmiMethodFound ? 1 : 0);
+}
+
+/**
+ *  Report whether the ATKD device answers _WED at all.
+ *
+ *  _WED(0xFF) pops the event queue and returns a key code, or Ones when the
+ *  queue is empty. Calling it with 0xFF consumes an entry, so it is only used
+ *  here to prove that the method exists and can be evaluated - which separates
+ *  "ACPI is reachable but nothing was pressed" from "ACPI events never arrive".
+ */
+void AsusSMC::probeATKEventPath() {
+    // _WED takes one argument; pass 0xFF, which is the documented "dequeue"
+    // path. Ones means the queue is empty right now.
+    OSObject *arg = OSNumber::withNumber(static_cast<uint32_t>(0xFF), 32);
+    uint32_t val = 0;
+    IOReturn ret = atkDevice->evaluateInteger("_WED", &val, (OSObject **)&arg, 1);
+    if (arg) {
+        arg->release();
+    }
+
+    char rec[160];
+    snprintf(rec, sizeof(rec), "wedRet=0x%X wedVal=0x%X last=0x%X count=%u",
+             (unsigned)ret, (unsigned)val,
+             (unsigned)lastKbdKey, (unsigned)kbdKeyCount);
+    setProperty("AsusSMCKeyPath", rec);
 }
 
 void AsusSMC::initALSDevice() {
@@ -2121,6 +2192,8 @@ bool AsusSMC::vsmcNotificationHandler(void *sensors, void *refCon, IOService *vs
                     // Fan refresh lives in AsusFanControl.kext now; it runs
                     // its own timer and its own ACPI access.
                     ls->followDisplayPower();
+                    // Reports whether the ATKD event path answers at all.
+                    ls->probeATKEventPath();
                 }
             });
 

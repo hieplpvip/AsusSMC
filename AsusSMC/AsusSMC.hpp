@@ -55,7 +55,7 @@
 // into the registry as AsusSMCBuild.
 //
 // Update this string whenever behaviour changes.
-#define kAsusSMCBuildTag "r41-staticfix"
+#define kAsusSMCBuildTag "r43-fndiag"
 
 
 // Kernel HID device, used for the keyboard backlight feature report. Only a
@@ -226,6 +226,7 @@ private:
     static constexpr uint8_t NOTIFY_BRIGHTNESS_DOWN_MAX = 0x2F;
 
     char wmi_method[5];
+    bool wmiMethodFound {false};
     int wmi_parse_guid(const char *in, char *out);
     int wmi_evaluate_method(uint32_t method_id, uint32_t arg0, uint32_t arg1);
     int wmi_get_devstate(uint32_t dev_id);
@@ -236,6 +237,7 @@ private:
     void parse_WDG();
 
     void initATKDevice();
+    void probeATKEventPath();
     void initALSDevice();
     void initEC0Device();
     void initBattery();
@@ -281,6 +283,7 @@ private:
     //   ioreg -rn AsusSMC -l | grep AsusSMCKey
     uint32_t lastKbdKey {0};
     uint32_t kbdKeyCount {0};
+    uint32_t notifyCount {0};
     // Number of LKSB writes seen, so a stalled brightness control is obvious.
     uint32_t kbdWriteCount {0};
     // Per-key access counters: LKSB and LKSS, reads and writes.
