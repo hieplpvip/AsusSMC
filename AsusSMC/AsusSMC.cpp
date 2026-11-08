@@ -686,27 +686,60 @@ void AsusSMC::initATKDevice() {
 }
 
 /**
- *  Report whether the ATKD device answers _WED at all.
+ *  Report whether the ATKD event path answers, and periodically prove that the
+ *  delivery path itself works.
  *
- *  _WED(0xFF) pops the event queue and returns a key code, or Ones when the
- *  queue is empty. Calling it with 0xFF consumes an entry, so it is only used
- *  here to prove that the method exists and can be evaluated - which separates
- *  "ACPI is reachable but nothing was pressed" from "ACPI events never arrive".
+ *  _WED(0xFF) pops the queue: Ones means empty right now.
+ *
+ *  A permanently empty queue has two completely different causes:
+ *
+ *    * the EC never raises its interrupt, so no _Qxx runs, so IANE is never
+ *      called and nothing is ever queued;
+ *    * the queue/delivery path is broken even when IANE does run.
+ *
+ *  Nothing else distinguishes them, so once every few seconds this calls
+ *  ATKD.IANE(0xC6) directly. 0xC6 is chosen because handleMessage already
+ *  ignores it ("ALS notifications"), so the call has no side effects at all.
+ *
+ *  If the injected code comes back out of _WED, the whole path from IANE
+ *  through IANQ and Notify to message() is intact, and the empty queue is
+ *  purely an EC-side problem. If it does not come back, the break is inside
+ *  ACPI and not in the EC.
  */
 void AsusSMC::probeATKEventPath() {
-    // _WED takes one argument; pass 0xFF, which is the documented "dequeue"
-    // path. Ones means the queue is empty right now.
-    OSObject *arg = OSNumber::withNumber(static_cast<uint32_t>(0xFF), 32);
-    uint32_t val = 0;
-    IOReturn ret = atkDevice->evaluateInteger("_WED", &val, (OSObject **)&arg, 1);
-    if (arg) {
-        arg->release();
+    // Inject one harmless code every 5 seconds.
+    injectTicks++;
+    if (injectTicks >= 5) {
+        injectTicks = 0;
+
+        OSObject *arg = OSNumber::withNumber(static_cast<uint32_t>(0xC6), 32);
+        IOReturn ret = atkDevice->evaluateInteger("IANE", &injectRet,
+                                                  (OSObject **)&arg, 1);
+        if (arg) {
+            arg->release();
+        }
+        injectRet = (uint32_t)ret;
+        injected = true;
     }
 
-    char rec[160];
-    snprintf(rec, sizeof(rec), "wedRet=0x%X wedVal=0x%X last=0x%X count=%u",
-             (unsigned)ret, (unsigned)val,
-             (unsigned)lastKbdKey, (unsigned)kbdKeyCount);
+    // Dequeue: with direct messaging the code arrives via message(), otherwise
+    // _WED(0xFF) pops it.
+    OSObject *wedArg = OSNumber::withNumber(static_cast<uint32_t>(0xFF), 32);
+    uint32_t val = 0;
+    IOReturn wedRet = atkDevice->evaluateInteger("_WED", &val,
+                                                 (OSObject **)&wedArg, 1);
+    if (wedArg) {
+        wedArg->release();
+    }
+
+    char rec[200];
+    snprintf(rec, sizeof(rec),
+             "wedRet=0x%X wedVal=0x%X last=0x%X keys=%u notify=%u "
+             "inject=0x%X injRet=0x%X%s",
+             (unsigned)wedRet, (unsigned)val,
+             (unsigned)lastKbdKey, (unsigned)kbdKeyCount,
+             (unsigned)notifyCount,
+             (unsigned)0xC6, (unsigned)injectRet, injected ? "" : " (pending)");
     setProperty("AsusSMCKeyPath", rec);
 }
 
