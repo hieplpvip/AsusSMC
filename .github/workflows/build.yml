@@ -3,6 +3,7 @@ name: Build AsusSMC 1.4.2
 on:
   push:
     branches: [ "master", "release/1.4.2" ]
+    tags: [ "v*" ]
   pull_request:
   workflow_dispatch:
 
