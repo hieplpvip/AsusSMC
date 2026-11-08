@@ -55,7 +55,7 @@
 // into the registry as AsusSMCBuild.
 //
 // Update this string whenever behaviour changes.
-#define kAsusSMCBuildTag "r46-wedfix"
+#define kAsusSMCBuildTag "r47-ganq"
 
 
 // Kernel HID device, used for the keyboard backlight feature report. Only a
@@ -288,6 +288,7 @@ private:
     uint32_t injectTicks {0};
     uint32_t injectRet {0};
     uint32_t injectValueOut {0};
+    uint32_t blockedCount {0};
     bool injected {false};
     // Number of LKSB writes seen, so a stalled brightness control is obvious.
     uint32_t kbdWriteCount {0};

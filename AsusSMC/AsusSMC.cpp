@@ -706,20 +706,46 @@ void AsusSMC::initATKDevice() {
  *  purely an EC-side problem. If it does not come back, the break is inside
  *  ACPI and not in the EC.
  */
+/**
+ *  Read the ATKD event queue directly, and find out why _WED reports it empty.
+ *
+ *  Measured on the machine: notify went 9 -> 16 while Fn keys were pressed,
+ *  with raw=0xFF every time. The only Notify(ATKD, 0xFF) in the whole DSDT is
+ *  inside IANE, so IANE runs on every key press - the event chain is alive.
+ *  Yet _WED keeps answering Ones.
+ *
+ *  _WED only dequeues when its argument is exactly 0xFF:
+ *
+ *      Method (_WED, 1) { If ((Arg0 == 0xFF)) { Return (GANQ()) } Return (Ones) }
+ *
+ *  So a Ones result can mean either "the queue is empty" or "the 0xFF
+ *  argument never arrived and the fall-through Return ran". Those are
+ *  completely different bugs, and _WED cannot tell them apart.
+ *
+ *  GANQ() takes no arguments and is the real dequeue, so calling it directly
+ *  removes the argument question entirely:
+ *
+ *    ganqVal is not Ones  -> the queue really does hold codes, and the problem
+ *                            is how _WED's argument is being passed;
+ *    ganqVal is Ones      -> the queue is genuinely empty, so IANQ failed to
+ *                            store the code even though IANE ran.
+ *
+ *  The injection uses IANQ instead of IANE for the same reason: IANE has no
+ *  Return statement at all, so evaluating it as an integer can only fail with
+ *  kIOReturnBadArgument (0xE00002C2), which is exactly what it reported.
+ *  IANQ returns One on success and Zero when its ring is full, which is
+ *  information rather than a guaranteed error.
+ */
 void AsusSMC::probeATKEventPath() {
-    // Inject one harmless code every 5 seconds.
+    // Every 5 seconds, queue one harmless code through the real queue entry.
+    // 0xC6 is ignored by handleMessage, so this has no side effects.
     if (injectTicks++ >= 5) {
         injectTicks = 0;
 
-        // Same call shape the notification path above uses: evaluateInteger
-        // wants an array of argument objects, so the address of a single
-        // OSObject pointer is cast to OSObject ** - exactly as _WED is called
-        // in message(). Passing something else returns kIOReturnBadArgument
-        // (0xE00002C2), which is what the previous build reported.
         OSNumber *injectArg = OSNumber::withNumber(static_cast<uint32_t>(0xC6), 32);
         uint32_t injectValue = 0;
         IOReturn injectStatus = atkDevice->evaluateInteger(
-            "IANE", &injectValue, (OSObject **)&injectArg, 1);
+            "IANQ", &injectValue, (OSObject **)&injectArg, 1);
         if (injectArg) {
             injectArg->release();
         }
@@ -728,8 +754,11 @@ void AsusSMC::probeATKEventPath() {
         injected = true;
     }
 
-    // Dequeue: with direct messaging the code arrives via message(), otherwise
-    // _WED(0xFF) pops it.
+    // GANQ takes no arguments, so nothing can be mis-passed.
+    uint32_t ganqVal = 0;
+    IOReturn ganqRet = atkDevice->evaluateInteger("GANQ", &ganqVal);
+
+    // _WED as the driver actually calls it, kept for comparison.
     OSNumber *wedArg = OSNumber::withNumber(static_cast<uint32_t>(0xFF), 32);
     uint32_t val = 0;
     IOReturn wedRet = atkDevice->evaluateInteger("_WED", &val,
@@ -737,16 +766,39 @@ void AsusSMC::probeATKEventPath() {
     if (wedArg) {
         wedArg->release();
     }
+    // Whatever GANQ handed back is a real key code, so feed it to the same
+    // handler the notification path uses. This bypasses _WED entirely.
+    //
+    // Only codes that cannot disturb the machine are forwarded. handleMessage
+    // has side effects for a few of them - 0x35 blanks the display, 0x5E
+    // sleeps, 0x6B toggles the touchpad, 0x7D toggles airplane mode - and
+    // flushing a stale queue during a diagnostic should not sleep the machine.
+    // The excluded set is reported separately so a key that only ever produces
+    // one of those codes still shows up as "seen but not acted on".
+    if (ganqVal != 0xFFFFFFFF) {
+        switch (ganqVal) {
+            case 0x33: case 0x34: case 0x35:   // display off
+            case 0x5E:                          // sleep
+            case 0x6B:                          // touchpad
+            case 0x7D:                          // airplane mode
+                blockedCount++;
+                break;
+            default:
+                handleMessage((int)ganqVal);
+                break;
+        }
+    }
 
-    char rec[220];
+    char rec[240];
     snprintf(rec, sizeof(rec),
-             "wedRet=0x%X wedVal=0x%X last=0x%X keys=%u notify=%u "
-             "injRet=0x%X injVal=0x%X%s",
+             "wedRet=0x%X wedVal=0x%X ganqRet=0x%X ganqVal=0x%X "
+             "last=0x%X keys=%u notify=%u injRet=0x%X injVal=0x%X%s",
              (unsigned)wedRet, (unsigned)val,
+             (unsigned)ganqRet, (unsigned)ganqVal,
              (unsigned)lastKbdKey, (unsigned)kbdKeyCount,
              (unsigned)notifyCount,
              (unsigned)injectRet, (unsigned)injectValueOut,
-             injected ? "" : " (pending)");
+             blockedCount ? " (blocked)" : "");
     setProperty("AsusSMCKeyPath", rec);
 }
 
