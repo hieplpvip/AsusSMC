@@ -4,15 +4,10 @@ AsusSMC Changelog
 #### v1.4.2
 - **Fix the WMI argument buffer size.** `wmi_args` was 8 bytes while the DSDT's
   `ATKD.WMNB` declares 20, so every WMI call was rejected with
-  `AE_AML_BUFFER_LIMIT` on boards of this generation. Fan telemetry, thermal
-  profile and every other WMI-backed key were dead as a result. The struct is
-  now 24 bytes (six `uint32` fields), which matches the declaration.
-- **Fall back to WMI when `TACH` is unusable.** On the GA503QM, `EC0.TACH()`
-  computes `0x0041CDB4 / (raw * 2)`, which with the counters the EC actually
-  reports yields 59000-93750 "RPM". The firmware path
-  (`DEVS`/`DSTS` device `0x00110013`/`0x00110014`) reports the same counter
-  decoded as `raw * 100`, matching `asus-wmi.c`, and `TACH` is only used when
-  it returns something plausible.
+  `AE_AML_BUFFER_LIMIT` on boards of this generation. The struct is now 24 bytes
+  (six `uint32` fields), which matches the declaration. This is not fan-specific:
+  the keyboard backlight (`DEVS 0x00050021`), the ALS enable and the battery
+  RSOC limit all go through the same call and were equally dead.
 - **Blank the keyboard backlight on display sleep.** macOS does not do this
   here: `LKSB`/`LKSS` only exist on 2015-and-earlier Macs, and this machine
   reports a 2020 SMBIOS, so macOS never touches them. The driver now follows
@@ -24,20 +19,12 @@ AsusSMC Changelog
 - **Make the System Settings keyboard brightness slider work.** Two independent
   causes had to be removed. First, automatic keyboard brightness disables the
   manual slider, and it is enabled here because this driver publishes ambient
-  light keys; `cbprobe auto-off` (or turning the setting off) unlocks it. Second,
-  macOS then only updates its own brightness state and never sends it to the
-  hardware, so the driver reads `KeyboardBacklightBrightness` from the registry
-  once a second and drives the light itself. That value tracks the slider over
-  the full `0..0xFFB` range and lives on `AppleLMUController` - do not remove
-  the ALS keys, they are what brings that service into existence.
-- **Split fan control into a separate `AsusFanControl.kext`.** Fan data comes
-  from the ASUS platform firmware over the same WMI/ATK device the other
-  features use, so it does not belong in the SMC layer. The fan SMC keys moved
-  with it: a virtual key can only be registered once, so they cannot be shared
-  between two kexts. Both kexts match the ATKD device independently.
-- Both kexts are built by Xcode rather than by a hand-written link. A kext
-  target runs `CreateKModInfo`, and the resulting `kmod_info` object is what the
-  kernel requires in order to load the extension at all.
+  light keys; turning the automatic setting off unlocks it. Second, macOS then
+  only updates its own brightness state and never sends it to the hardware, so
+  the driver reads `KeyboardBacklightBrightness` from the registry once a second
+  and drives the light itself. That value tracks the slider over the full
+  `0..0xFFB` range and lives on `AppleLMUController` - do not remove the ALS
+  keys, they are what brings that service into existence.
 
 #### v1.4.1
 - Added MacKernelSDK with Xcode 12 compatibility

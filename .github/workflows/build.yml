@@ -69,12 +69,9 @@ jobs:
           git clone --depth 1 https://github.com/acidanthera/MacKernelSDK
           test -f MacKernelSDK/Library/x86_64/libkmod.a
 
-      # Two kexts are produced now: AsusSMC (keyboard backlight, ALS, battery)
-      # and AsusFanControl (fan telemetry and fan modes). Building both through
-      # Xcode matters: the kext target runs CreateKModInfo, and that object is
-      # what a kernel extension needs in order to load at all. A hand-written
-      # clang link does not produce it, which is why an earlier attempt at a
-      # standalone fan kext built fine but never loaded.
+      # Built through Xcode, not a hand-written link: the kext target runs
+      # CreateKModInfo, and the kernel will not load an extension without the
+      # resulting kmod_info object.
       - name: Build (Debug)
         run: |
           set -euo pipefail
@@ -93,59 +90,32 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
             build 2>&1 | tee release.log
 
-      - name: Build AsusFanControl
+      - name: Verify kext
         run: |
           set -euo pipefail
+
+          KEXT=$(find build -name "AsusSMC.kext" -maxdepth 4 | head -n 1)
+          test -n "$KEXT" || { echo "AsusSMC.kext not produced"; exit 1; }
+          echo "kext: $KEXT"
+
           for cfg in Debug Release; do
-            xcodebuild -jobs 1 -configuration "$cfg" \
-              -project AsusSMC.xcodeproj -target AsusFanControl \
-              ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO \
-              CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
-              build 2>&1 | tee "fan-$cfg.log"
+            K="build/$cfg/AsusSMC.kext"
+            [ -d "$K" ] || continue
+            plutil -p "$K/Contents/Info.plist" | grep -E 'CFBundleVersion|CFBundleIdentifier'
           done
 
-      - name: Verify kexts
-        run: |
-          set -euo pipefail
-
-          SMC=$(find build -name "AsusSMC.kext" -maxdepth 4 | head -n 1)
-          FAN=$(find build -name "AsusFanControl.kext" -maxdepth 4 | head -n 1)
-          test -n "$SMC" || { echo "AsusSMC.kext not produced"; exit 1; }
-          test -n "$FAN" || { echo "AsusFanControl.kext not produced"; exit 1; }
-          echo "AsusSMC       : $SMC"
-          echo "AsusFanControl: $FAN"
-
-          for k in "$SMC" "$FAN"; do
-            plutil -p "$k/Contents/Info.plist" | grep -E 'CFBundleVersion|CFBundleIdentifier'
-          done
+          BIN="$KEXT/Contents/MacOS/AsusSMC"
+          lipo -info "$BIN" | grep -q x86_64 || { echo "not x86_64"; exit 1; }
 
           # A kernel extension must carry kmod_info; without it the kernel
-          # refuses to load the kext, which is a silent failure at boot.
-          for k in "$SMC" "$FAN"; do
-            BIN=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$k/Contents/Info.plist")
-            lipo -info "$k/Contents/MacOS/$BIN" | grep -q x86_64 \
-              || { echo "not x86_64: $BIN"; exit 1; }
-            nm -a "$k/Contents/MacOS/$BIN" 2>/dev/null | grep -q 'kmod_info' \
-              || { echo "MISSING kmod_info in $BIN"; exit 1; }
-            echo "kmod_info present in $BIN"
-          done
+          # refuses to load the kext, which fails silently at boot.
+          nm -a "$BIN" 2>/dev/null | grep -q 'kmod_info' \
+            || { echo "MISSING kmod_info"; exit 1; }
+          echo "kmod_info present"
 
-          # Key ownership: a virtual SMC key can only be registered once, so the
-          # fan keys must live in AsusFanControl and be absent from AsusSMC.
-          SMCBIN="$SMC/Contents/MacOS/AsusSMC"
-          for key in F0Ac F1Ac FNum F0Md; do
-            if grep -aq "$key" "$SMCBIN"; then
-              echo "UNEXPECTED fan key $key in AsusSMC"; exit 1
-            fi
-          done
-          FANBIN="$FAN/Contents/MacOS/AsusFanControl"
-          for key in F0Ac F1Ac F0Mn F0Mx F0Md F1Md F0Tp; do
-            grep -aq "$key" "$FANBIN" || { echo "MISSING fan key $key"; exit 1; }
-          done
-          echo "key ownership correct"
-
-          for m in followDisplayPower followKeyboardBrightness; do
-            grep -aq "$m" "$SMCBIN" || { echo "MISSING symbol $m"; exit 1; }
+          # The features this release adds must be linked in.
+          for m in followDisplayPower followKeyboardBrightness sendKbdBacklightViaHID; do
+            grep -aq "$m" "$BIN" || { echo "MISSING symbol $m"; exit 1; }
           done
           echo "verification OK"
 
@@ -158,8 +128,6 @@ jobs:
           for cfg in Debug Release; do
             [ -d "build/$cfg/AsusSMC.kext" ] && \
               ditto "build/$cfg/AsusSMC.kext" "$OUT/AsusSMC-$cfg.kext" || true
-            [ -d "build/$cfg/AsusFanControl.kext" ] && \
-              ditto "build/$cfg/AsusFanControl.kext" "$OUT/AsusFanControl-$cfg.kext" || true
           done
           ls -l "$OUT"
 
