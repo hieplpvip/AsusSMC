@@ -55,7 +55,7 @@
 // into the registry as AsusSMCBuild.
 //
 // Update this string whenever behaviour changes.
-#define kAsusSMCBuildTag "r43-fndiag"
+#define kAsusSMCBuildTag "r44-ecdiag"
 
 
 // Kernel HID device, used for the keyboard backlight feature report. Only a
@@ -251,6 +251,7 @@ private:
 
     IOACPIPlatformDevice *atkDevice {nullptr};
     IOACPIPlatformDevice *alsDevice {nullptr};
+    IOACPIPlatformDevice *ec0Device {nullptr};
     VirtualAppleKeyboard *kbdDevice {nullptr};
 
     ALSForceBits forceBits;

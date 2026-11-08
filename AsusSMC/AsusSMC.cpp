@@ -758,13 +758,70 @@ void AsusSMC::initALSDevice() {
 }
 
 void AsusSMC::initEC0Device() {
-    // Fan telemetry moved to AsusFanControl.kext, which matches the ATKD device
-    // on its own and owns the TACH/DEVS/DSTS access. Nothing in this driver
-    // needs the EC0 device any more, so it is not resolved here.
+    // Resolve the embedded controller and read its _CRS.
     //
-    // This stays as a no-op rather than being deleted so the call site in
-    // start() and the header declaration keep their meaning.
-    DBGLOG("ec0", "fan telemetry lives in AsusFanControl now, EC0 not needed");
+    // This is the last unknown in the Fn-key chain. On this DSDT EC0._CRS
+    // returns one of two resource sets depending on a GNVS byte (RDHW) that
+    // the BIOS sets and nothing in the DSDT ever writes:
+    //
+    //   RDHW == 0  ->   IO 0x62/0x66 only, no interrupt
+    //   RDHW != 0  ->   IO 0x62/0x66 plus GpioInt on pin 0x16
+    //
+    // No interrupt means AppleACPIEC has nothing to install a handler on, so
+    // EC0's _Qxx query methods never run - and every Fn key in this DSDT is
+    // delivered by _Qxx calling ^^^^ATKD.IANE(). That is consistent with what
+    // is measured: ATKD.INIT returns 1 (ATKP is set), _WED always answers
+    // Ones (queue permanently empty), and no notification ever arrives.
+    //
+    // Reading _CRS and reporting its length settles it: the IO-only set is
+    // much shorter than the one that carries the GPIO interrupt.
+
+    auto dict = IOService::nameMatching("PNP0C09");
+    if (!dict) {
+        setProperty("AsusSMCEC", "no matching dict");
+        return;
+    }
+
+    auto iter = IOService::getMatchingServices(dict);
+    dict->release();
+    if (!iter) {
+        setProperty("AsusSMCEC", "no ec services");
+        return;
+    }
+
+    IOACPIPlatformDevice *ec = OSDynamicCast(IOACPIPlatformDevice, iter->getNextObject());
+    iter->release();
+
+    if (!ec) {
+        setProperty("AsusSMCEC", "PNP0C09 not found");
+        return;
+    }
+
+    ec0Device = ec;
+
+    OSObject *crs = nullptr;
+    IOReturn crsRet = ec->evaluateObject("_CRS", &crs);
+    int crsLen = -1;
+    if (crsRet == kIOReturnSuccess && crs) {
+        if (OSData *d = OSDynamicCast(OSData, crs)) {
+            crsLen = (int)d->getLength();
+        }
+        crs->release();
+    }
+
+    // The IO-only set is two 8-byte descriptors; the set with the GPIO
+    // interrupt additionally carries a GpioInt descriptor, which is bigger.
+    // Report both the raw length and a verdict, so a surprising length is
+    // still visible rather than collapsed into a guess.
+    bool hasInterrupt = (crsLen > 0 && crsLen >= 24);
+
+    char rec[160];
+    snprintf(rec, sizeof(rec), "crsRet=0x%X crsLen=%d irq=%s gpio=%d",
+             (unsigned)crsRet, crsLen,
+             crsLen < 0 ? "unreadable" : (hasInterrupt ? "present" : "MISSING"),
+             hasInterrupt ? 0x16 : -1);
+    setProperty("AsusSMCEC", rec);
+    SYSLOG("ec0", "EC0 _CRS: %s", rec);
 }
 
 void AsusSMC::initBattery() {
