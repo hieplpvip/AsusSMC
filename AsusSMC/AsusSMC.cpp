@@ -735,29 +735,46 @@ void AsusSMC::initATKDevice() {
  *  statement, so evaluating it as an integer can only yield
  *  kIOReturnBadArgument (0xE00002C2).
  */
+/**
+ *  Drain the ATKD event queue and route each code through handleMessage.
+ *
+ *  This replaces the diagnostic that read AQNO and injected test codes. Both
+ *  of those were wrong, and the second one was actively harmful:
+ *
+ *    * injecting IANQ(0xC6) every five seconds filled the ring. ATKQ holds
+ *      only 16 entries and IANQ blocks for up to a second and then returns
+ *      Zero once it is full, so after about 80 seconds the whole EC event
+ *      path was stalled - which is why notify dropped to 0 and no key did
+ *      anything at all.
+ *    * reading AQNO told us the depth but nothing about the codes, and the
+ *      queue cannot be left full or nothing new is ever accepted.
+ *
+ *  The queue was observed full (aqno=16) which proves the enqueue side works:
+ *  IANQ does store codes. The reason message() always received Ones is that
+ *  _WED only dequeues when its argument is exactly 0xFF; when that argument
+ *  does not survive the call it falls through to "Return (Ones)".
+ *
+ *  So the queue is drained here directly. GANQ takes no arguments, so nothing
+ *  can be lost on the way in, and it returns Ones exactly when the ring is
+ *  empty. Every code it produces is handed to handleMessage, the same
+ *  function the notification path calls.
+ *
+ *  Codes with side effects are deliberately not acted on: 0x33/0x34/0x35
+ *  blank the display, 0x5E sleeps, 0x6B toggles the touchpad and 0x7D toggles
+ *  airplane mode. Draining a backlog while the machine is in use should not
+ *  sleep it. They are counted instead, so a key that only produces one of
+ *  those still shows up as "seen".
+ *
+ *  The oldest entry is dropped if the ring is already full, because nothing
+ *  else will ever drain it and a full ring stops all further events.
+ */
 void AsusSMC::probeATKEventPath() {
-    // Every 5 seconds, enqueue one harmless code. 0xC6 is ignored by
-    // handleMessage, so if it ever reaches there it does nothing.
-    if (injectTicks++ >= 5) {
-        injectTicks = 0;
-
-        OSNumber *injectArg = OSNumber::withNumber(static_cast<uint32_t>(0xC6), 32);
-        uint32_t injectValue = 0;
-        IOReturn injectStatus = atkDevice->evaluateInteger(
-            "IANQ", &injectValue, (OSObject **)&injectArg, 1);
-        if (injectArg) {
-            injectArg->release();
-        }
-        injectRet = (uint32_t)injectStatus;
-        injectValueOut = injectValue;
-        injected = true;
-    }
-
-    // Read the queue depth. This is a plain Name lookup, so it consumes
-    // nothing and cannot interfere with the notification path.
+    // Read the depth first: the common case is an empty queue, and there is no
+    // reason to evaluate GANQ sixteen times every second when there is nothing
+    // in there.
     OSObject *aqnoObj = nullptr;
-    IOReturn aqnoRet = atkDevice->evaluateObject("AQNO", &aqnoObj);
     uint32_t aqno = 0;
+    IOReturn aqnoRet = atkDevice->evaluateObject("AQNO", &aqnoObj);
     if (aqnoRet == kIOReturnSuccess && aqnoObj) {
         if (OSNumber *n = OSDynamicCast(OSNumber, aqnoObj)) {
             aqno = n->unsigned32BitValue();
@@ -765,15 +782,62 @@ void AsusSMC::probeATKEventPath() {
         aqnoObj->release();
     }
 
+    lastAqno = aqno;
+
+    if (aqno == 0) {
+        char empty[160];
+        snprintf(empty, sizeof(empty),
+                 "drained=0 aqno=0 last=0x%X keys=%u notify=%u blocked=%u drops=%u",
+                 (unsigned)lastKbdKey, (unsigned)kbdKeyCount,
+                 (unsigned)notifyCount, (unsigned)blockedCount,
+                 (unsigned)overflowDrops);
+        setProperty("AsusSMCKeyPath", empty);
+        return;
+    }
+
+    // A full ring is the state that stalls the EC path: IANQ blocks for up to
+    // a second and then refuses everything. Drop the oldest entry so new codes
+    // can still arrive - nothing else will ever drain it.
+    if (aqno >= 16) {
+        uint32_t discard = 0;
+        atkDevice->evaluateInteger("GANQ", &discard);
+        overflowDrops++;
+        aqno--;
+    }
+
+    uint32_t drained = 0;
+    uint32_t lastCode = 0xFFFFFFFF;
+
+    for (uint32_t i = 0; i < aqno && i < 16; i++) {
+        uint32_t code = 0;
+        IOReturn kr = atkDevice->evaluateInteger("GANQ", &code);
+        if (kr != kIOReturnSuccess || code == 0xFFFFFFFF) {
+            break;
+        }
+
+        drained++;
+        lastCode = code;
+
+        switch (code) {
+            case 0x33: case 0x34: case 0x35:   // display off
+            case 0x5E:                          // sleep
+            case 0x6B:                          // touchpad
+            case 0x7D:                          // airplane mode
+                blockedCount++;
+                break;
+            default:
+                handleMessage((int)code);
+                break;
+        }
+    }
+
     char rec[240];
     snprintf(rec, sizeof(rec),
-             "aqnoRet=0x%X aqno=%u last=0x%X keys=%u notify=%u "
-             "injRet=0x%X injVal=0x%X%s",
-             (unsigned)aqnoRet, (unsigned)aqno,
-             (unsigned)lastKbdKey, (unsigned)kbdKeyCount,
-             (unsigned)notifyCount,
-             (unsigned)injectRet, (unsigned)injectValueOut,
-             injected ? "" : " (pending)");
+             "drained=%u aqno=%u last=0x%X keys=%u notify=%u blocked=%u drops=%u",
+             (unsigned)drained, (unsigned)aqno,
+             (unsigned)lastCode, (unsigned)kbdKeyCount,
+             (unsigned)notifyCount, (unsigned)blockedCount,
+             (unsigned)overflowDrops);
     setProperty("AsusSMCKeyPath", rec);
 }
 

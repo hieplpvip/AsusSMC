@@ -55,7 +55,7 @@
 // into the registry as AsusSMCBuild.
 //
 // Update this string whenever behaviour changes.
-#define kAsusSMCBuildTag "r48-aqno"
+#define kAsusSMCBuildTag "r49-drain"
 
 
 // Kernel HID device, used for the keyboard backlight feature report. Only a
@@ -285,11 +285,12 @@ private:
     uint32_t lastKbdKey {0};
     uint32_t kbdKeyCount {0};
     uint32_t notifyCount {0};
-    uint32_t injectTicks {0};
-    uint32_t injectRet {0};
-    uint32_t injectValueOut {0};
+    uint32_t overflowDrops {0};
     
-    bool injected {false};
+    uint32_t blockedCount {0};
+    uint32_t lastAqno {0};
+    
+    
     // Number of LKSB writes seen, so a stalled brightness control is obvious.
     uint32_t kbdWriteCount {0};
     // Per-key access counters: LKSB and LKSS, reads and writes.
