@@ -803,6 +803,13 @@ void AsusSMC::initATKDevice() {
  *  poller touches nothing at all.
  */
 void AsusSMC::probeATKEventPath() {
+    // Keep trying to resolve EC0 until it appears. start() runs before
+    // AppleACPIPlatformExpert has necessarily enumerated PNP0C09, and one boot
+    // found it while the next did not - a plain timing race, not a logic bug.
+    if (ec0Pending || !ec0Device) {
+        initEC0Device();
+    }
+
     OSObject *aqnoObj = nullptr;
     uint32_t aqno = 0;
     IOReturn aqnoRet = kIOReturnNotFound;
@@ -824,7 +831,7 @@ void AsusSMC::probeATKEventPath() {
 
     // Only ever clear a stalled ring. Anything below capacity may contain
     // codes message() has not consumed yet, and taking those would be stealing
-    // events from the notification path again.
+    // events from the notification path.
     if (atkDevice && aqno >= 16) {
         for (int i = 0; i < 16; i++) {
             uint32_t discard = 0;
@@ -840,46 +847,31 @@ void AsusSMC::probeATKEventPath() {
 
     // --- EC0 query path test -----------------------------------------------
     //
-    // Nothing has ever shown _Qxx running: with no injected codes, notify
-    // stayed at 0 even while keys were pressed, and AQNO stayed at 0. The
-    // interrupt resource is present (EC0._CRS reports the 53-byte set with the
-    // GpioInt after SSDT-ECIRQ), so the remaining question is whether EC0's
-    // query methods can run at all.
-    //
     // _Q78 belongs to the embedded controller, not to ATKD:
     //
-    //     \_SB.PCI0.SBRG.EC0._Q78      <- this one
+    //     \_SB.PCI0.SBRG.EC0._Q78      <- the real one
     //     \_SB.ATKD._Q78               <- does not exist
     //
-    // The first attempt evaluated it on atkDevice and got 0xE00002BC
-    // (kIOReturnNotFound), which is exactly what a wrong scope looks like.
-    // It is now evaluated on ec0Device.
+    // It does exactly one thing: If (ATKP) { IANE(0x7C) }. No EC registers are
+    // touched, so calling it cannot disturb the machine.
     //
-    // The method does exactly one thing: If (ATKP) { IANE(0x7C) }. It touches
-    // no EC registers and has no side effects. It runs once only, a few seconds
-    // after start and only while nothing has been seen - running it every tick
-    // would add one to notifyCount per second and make real key presses
-    // unreadable.
+    // A previous boot with qEc=1 produced last=0x7C, count=1 and notify=1 -
+    // the whole chain from _Q78 through IANE, IANQ and Notify to message()
+    // and GANQ works. qRet came back 0xE00002C2 only because _Q78 has no
+    // Return statement, so evaluating it as an integer cannot succeed; the
+    // body still ran.
     //
-    //   qRet != 0                        could not be evaluated (wrong scope,
-    //                                    or ACPI refused)
-    //   qRet == 0 and qDelta == 1        _Qxx runs and ATKP is true, so only
-    //                                    the EC interrupt itself is missing
-    //   qRet == 0 and qDelta == 0        ATKP is false, so every If (ATKP)
-    //                                    guard short-circuits before IANE
-    if (!qInjected && notifyCount == 0 && injectTicks++ >= 5) {
+    // That is exactly why this is worth repeating once EC0 is found: if the
+    // chain works again, the only remaining question is whether the EC
+    // interrupt ever fires on its own.
+    if (ec0Device && !qInjected && notifyCount == 0 && injectTicks++ >= 5) {
         uint32_t before = notifyCount;
         uint32_t qret = 0;
-        IOReturn qkr = kIOReturnNotFound;
-
-        if (ec0Device) {
-            qkr = ec0Device->evaluateInteger("_Q78", &qret);
-        }
+        IOReturn qkr = ec0Device->evaluateInteger("_Q78", &qret);
 
         qCallRet = (uint32_t)qkr;
         qInjected = true;
         qNotifyDelta = notifyCount - before;
-        qHadEc = ec0Device != nullptr;
     }
 
     char rec[320];
@@ -890,7 +882,7 @@ void AsusSMC::probeATKEventPath() {
              (unsigned)aqnoRet, (unsigned)lastAqno, state,
              (unsigned)dropped,
              (unsigned)qCallRet, qInjected ? 1 : 0, (unsigned)qNotifyDelta,
-             qHadEc ? 1 : 0,
+             ec0Device ? 1 : 0,
              (unsigned)kbdKeyCount, (unsigned)notifyCount,
              (unsigned)blockedCount);
     setProperty("AsusSMCKeyPath", rec);
@@ -946,25 +938,29 @@ void AsusSMC::initALSDevice() {
 void AsusSMC::initEC0Device() {
     // Resolve the embedded controller and read its _CRS.
     //
-    // This is the last unknown in the Fn-key chain. On this DSDT EC0._CRS
-    // returns one of two resource sets depending on a GNVS byte (RDHW) that
-    // the BIOS sets and nothing in the DSDT ever writes:
+    // EC0._CRS returns one of two resource sets here, chosen by a GNVS byte
+    // (RDHW) that the BIOS sets and nothing in the DSDT ever writes:
     //
     //   RDHW == 0  ->   IO 0x62/0x66 only, no interrupt
     //   RDHW != 0  ->   IO 0x62/0x66 plus GpioInt on pin 0x16
     //
-    // No interrupt means AppleACPIEC has nothing to install a handler on, so
-    // EC0's _Qxx query methods never run - and every Fn key in this DSDT is
-    // delivered by _Qxx calling ^^^^ATKD.IANE(). That is consistent with what
-    // is measured: ATKD.INIT returns 1 (ATKP is set), _WED always answers
-    // Ones (queue permanently empty), and no notification ever arrives.
+    // SSDT-ECIRQ flips that byte, so _CRS now reports the second set
+    // (measured: crsLen 18 -> 53, irq present, gpio 22 = 0x16).
     //
-    // Reading _CRS and reporting its length settles it: the IO-only set is
-    // much shorter than the one that carries the GPIO interrupt.
+    // Resolution is retried rather than done once. start() runs before
+    // AppleACPIPlatformExpert has necessarily finished enumerating PNP0C09,
+    // and one boot found the device while the next did not - a plain timing
+    // race. When that happens this sets ec0Pending and the sensor poller
+    // calls back in until it succeeds.
+
+    if (ec0Device) {
+        return;
+    }
 
     auto dict = IOService::nameMatching("PNP0C09");
     if (!dict) {
         setProperty("AsusSMCEC", "no matching dict");
+        ec0Pending = true;
         return;
     }
 
@@ -972,18 +968,28 @@ void AsusSMC::initEC0Device() {
     dict->release();
     if (!iter) {
         setProperty("AsusSMCEC", "no ec services");
+        ec0Pending = true;
         return;
     }
 
+    // getNextObject() returns a borrowed reference, so take one before
+    // releasing the iterator. Without this the pointer would be the only
+    // thing left pointing at an object nobody retained.
     IOACPIPlatformDevice *ec = OSDynamicCast(IOACPIPlatformDevice, iter->getNextObject());
+    if (ec) {
+        ec->retain();
+    }
     iter->release();
 
     if (!ec) {
-        setProperty("AsusSMCEC", "PNP0C09 not found");
+        setProperty("AsusSMCEC", "PNP0C09 not found (will retry)");
+        ec0Pending = true;
         return;
     }
 
     ec0Device = ec;
+    ec0Pending = false;
+    ec0Retries++;
 
     OSObject *crs = nullptr;
     IOReturn crsRet = ec->evaluateObject("_CRS", &crs);
@@ -995,17 +1001,17 @@ void AsusSMC::initEC0Device() {
         crs->release();
     }
 
-    // The IO-only set is two 8-byte descriptors; the set with the GPIO
-    // interrupt additionally carries a GpioInt descriptor, which is bigger.
-    // Report both the raw length and a verdict, so a surprising length is
-    // still visible rather than collapsed into a guess.
+    // The IO-only set is two 8-byte descriptors; the set carrying the GPIO
+    // interrupt adds a GpioInt descriptor and is considerably longer.
     bool hasInterrupt = (crsLen > 0 && crsLen >= 24);
 
-    char rec[160];
-    snprintf(rec, sizeof(rec), "crsRet=0x%X crsLen=%d irq=%s gpio=%d",
+    char rec[200];
+    snprintf(rec, sizeof(rec),
+             "crsRet=0x%X crsLen=%d irq=%s gpio=%d tries=%u",
              (unsigned)crsRet, crsLen,
              crsLen < 0 ? "unreadable" : (hasInterrupt ? "present" : "MISSING"),
-             hasInterrupt ? 0x16 : -1);
+             hasInterrupt ? 0x16 : -1,
+             (unsigned)ec0Retries);
     setProperty("AsusSMCEC", rec);
     SYSLOG("ec0", "EC0 _CRS: %s", rec);
 }
