@@ -838,11 +838,45 @@ void AsusSMC::probeATKEventPath() {
         state = "cleared";
     }
 
-    char rec[220];
+    // --- EC0 query path test -----------------------------------------------
+    //
+    // Nothing in the previous measurements ever showed _Qxx running: with no
+    // injected codes, notify stayed at 0 even while keys were pressed, and
+    // AQNO stayed at 0. The interrupt resource is present (EC0._CRS reports
+    // the 53-byte set with the GpioInt after SSDT-ECIRQ), so the remaining
+    // question is whether EC0's query methods can run at all.
+    //
+    // _Q78 is used because it does exactly one thing: If (ATKP) { IANE(0x7C) }.
+    // It touches no EC registers and has no side effects, so calling it
+    // directly cannot disturb the machine.
+    //
+    // It runs ONCE, a few seconds after start, and only if nothing has been
+    // seen yet. Running it every tick would add one to notifyCount every
+    // second and make the real key presses impossible to read.
+    //
+    //   qRet != 0                     the method could not be evaluated
+    //   qRet == 0 and notify rose by 1    _Qxx works and ATKP is true, so the
+    //                                     remaining problem is that the EC
+    //                                     interrupt never fires
+    //   qRet == 0 and notify did not rise ATKP is false, so every If(ATKP)
+    //                                     guard in this DSDT short-circuits
+    if (atkDevice && !qInjected && notifyCount == 0 && injectTicks++ >= 5) {
+        uint32_t before = notifyCount;
+        uint32_t qret = 0;
+        IOReturn qkr = atkDevice->evaluateInteger("_Q78", &qret);
+        qCallRet = (uint32_t)qkr;
+        qInjected = true;
+        qNotifyDelta = notifyCount - before;
+    }
+
+    char rec[280];
     snprintf(rec, sizeof(rec),
-             "aqnoRet=0x%X aqno=%u %s dropped=%u keys=%u notify=%u blocked=%u",
+             "aqnoRet=0x%X aqno=%u %s dropped=%u "
+             "qRet=0x%X qRan=%d qDelta=%u "
+             "keys=%u notify=%u blocked=%u",
              (unsigned)aqnoRet, (unsigned)lastAqno, state,
              (unsigned)dropped,
+             (unsigned)qCallRet, qInjected ? 1 : 0, (unsigned)qNotifyDelta,
              (unsigned)kbdKeyCount, (unsigned)notifyCount,
              (unsigned)blockedCount);
     setProperty("AsusSMCKeyPath", rec);

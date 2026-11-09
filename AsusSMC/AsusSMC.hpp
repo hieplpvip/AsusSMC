@@ -55,7 +55,7 @@
 // into the registry as AsusSMCBuild.
 //
 // Update this string whenever behaviour changes.
-#define kAsusSMCBuildTag "r50-ganqmsg"
+#define kAsusSMCBuildTag "r51-qcall"
 
 
 // Kernel HID device, used for the keyboard backlight feature report. Only a
@@ -289,6 +289,10 @@ private:
     
     uint32_t blockedCount {0};
     uint32_t lastAqno {0};
+    uint32_t qCallRet {0};
+    uint32_t qNotifyDelta {0};
+    uint32_t injectTicks {0};
+    bool qInjected {false};
     
     
     // Number of LKSB writes seen, so a stalled brightness control is obvious.
