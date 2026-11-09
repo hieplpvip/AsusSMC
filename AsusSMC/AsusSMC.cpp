@@ -277,12 +277,27 @@ IOReturn AsusSMC::message(uint32_t type, IOService *provider, void *argument) {
             if (directACPImessaging) {
                 handleMessage(*((uint32_t *)argument));
             } else {
-                uint32_t event = *((uint32_t *)argument);
-                OSNumber *arg = OSNumber::withNumber(event, 32);
-                uint32_t res;
-                atkDevice->evaluateInteger("_WED", &res, (OSObject **)&arg, 1);
-                arg->release();
-                handleMessage(res);
+                // Dequeue with GANQ rather than _WED.
+                //
+                // _WED only pops when its argument is exactly 0xFF:
+                //
+                //   Method (_WED, 1) { If ((Arg0 == 0xFF)) { Return (GANQ()) }
+                //                      Return (Ones) }
+                //
+                // On this machine the 0xFF never survives the call, so every
+                // evaluateInteger("_WED", ...) falls through to "Return (Ones)"
+                // and the driver was handed 0xFFFFFFFF instead of a key code.
+                // Measured: AQNO sat at 16 - the ring's capacity - across two
+                // separate boots, which means IANE enqueued 16 codes and
+                // nothing ever dequeued them.
+                //
+                // GANQ takes no arguments, so there is nothing to lose on the
+                // way in, and it answers Ones exactly when the ring is empty.
+                uint32_t res = 0;
+                IOReturn kr = atkDevice->evaluateInteger("GANQ", &res);
+                if (kr == kIOReturnSuccess && res != 0xFFFFFFFF) {
+                    handleMessage((int)res);
+                }
             }
             break;
         }
@@ -768,76 +783,68 @@ void AsusSMC::initATKDevice() {
  *  The oldest entry is dropped if the ring is already full, because nothing
  *  else will ever drain it and a full ring stops all further events.
  */
+/**
+ *  Report the ATKD ring state, and clear it exactly once if it is stalled.
+ *
+ *  message() now dequeues with GANQ directly, so this must not compete with it.
+ *  The previous build ran a GANQ poll once per second and that starved the
+ *  notification path - the diagnostic became the bug. So this only reads AQNO
+ *  in the steady state.
+ *
+ *  The one exception is a full ring. ATKQ holds 16 entries and nothing in the
+ *  DSDT ever resets AQNO, so a backlog that accumulated before the driver
+ *  started draining properly stays there forever. A full ring is worse than
+ *  stale data: IANQ sleeps for up to a second and then refuses every new code,
+ *  which stalls the entire EC event path. Measured on the last two boots:
+ *  AQNO sat at exactly 16 and notify fell to zero.
+ *
+ *  So a full ring is cleared once. It is reported as "cleared" so the fact that
+ *  stale entries were discarded is visible rather than silent. Below 16 the
+ *  poller touches nothing at all.
+ */
 void AsusSMC::probeATKEventPath() {
-    // Read the depth first: the common case is an empty queue, and there is no
-    // reason to evaluate GANQ sixteen times every second when there is nothing
-    // in there.
     OSObject *aqnoObj = nullptr;
     uint32_t aqno = 0;
-    IOReturn aqnoRet = atkDevice->evaluateObject("AQNO", &aqnoObj);
-    if (aqnoRet == kIOReturnSuccess && aqnoObj) {
-        if (OSNumber *n = OSDynamicCast(OSNumber, aqnoObj)) {
-            aqno = n->unsigned32BitValue();
+    IOReturn aqnoRet = kIOReturnNotFound;
+
+    if (atkDevice) {
+        aqnoRet = atkDevice->evaluateObject("AQNO", &aqnoObj);
+        if (aqnoRet == kIOReturnSuccess && aqnoObj) {
+            if (OSNumber *n = OSDynamicCast(OSNumber, aqnoObj)) {
+                aqno = n->unsigned32BitValue();
+            }
+            aqnoObj->release();
         }
-        aqnoObj->release();
     }
 
     lastAqno = aqno;
 
-    if (aqno == 0) {
-        char empty[160];
-        snprintf(empty, sizeof(empty),
-                 "drained=0 aqno=0 last=0x%X keys=%u notify=%u blocked=%u drops=%u",
-                 (unsigned)lastKbdKey, (unsigned)kbdKeyCount,
-                 (unsigned)notifyCount, (unsigned)blockedCount,
-                 (unsigned)overflowDrops);
-        setProperty("AsusSMCKeyPath", empty);
-        return;
-    }
+    const char *state = "ok";
+    uint32_t dropped = 0;
 
-    // A full ring is the state that stalls the EC path: IANQ blocks for up to
-    // a second and then refuses everything. Drop the oldest entry so new codes
-    // can still arrive - nothing else will ever drain it.
-    if (aqno >= 16) {
-        uint32_t discard = 0;
-        atkDevice->evaluateInteger("GANQ", &discard);
-        overflowDrops++;
-        aqno--;
-    }
-
-    uint32_t drained = 0;
-    uint32_t lastCode = 0xFFFFFFFF;
-
-    for (uint32_t i = 0; i < aqno && i < 16; i++) {
-        uint32_t code = 0;
-        IOReturn kr = atkDevice->evaluateInteger("GANQ", &code);
-        if (kr != kIOReturnSuccess || code == 0xFFFFFFFF) {
-            break;
-        }
-
-        drained++;
-        lastCode = code;
-
-        switch (code) {
-            case 0x33: case 0x34: case 0x35:   // display off
-            case 0x5E:                          // sleep
-            case 0x6B:                          // touchpad
-            case 0x7D:                          // airplane mode
-                blockedCount++;
+    // Only ever clear a stalled ring. Anything below capacity may contain
+    // codes message() has not consumed yet, and taking those would be stealing
+    // events from the notification path again.
+    if (atkDevice && aqno >= 16) {
+        for (int i = 0; i < 16; i++) {
+            uint32_t discard = 0;
+            IOReturn kr = atkDevice->evaluateInteger("GANQ", &discard);
+            if (kr != kIOReturnSuccess || discard == 0xFFFFFFFF) {
                 break;
-            default:
-                handleMessage((int)code);
-                break;
+            }
+            dropped++;
         }
+        overflowDrops += dropped;
+        state = "cleared";
     }
 
-    char rec[240];
+    char rec[220];
     snprintf(rec, sizeof(rec),
-             "drained=%u aqno=%u last=0x%X keys=%u notify=%u blocked=%u drops=%u",
-             (unsigned)drained, (unsigned)aqno,
-             (unsigned)lastCode, (unsigned)kbdKeyCount,
-             (unsigned)notifyCount, (unsigned)blockedCount,
-             (unsigned)overflowDrops);
+             "aqnoRet=0x%X aqno=%u %s dropped=%u keys=%u notify=%u blocked=%u",
+             (unsigned)aqnoRet, (unsigned)lastAqno, state,
+             (unsigned)dropped,
+             (unsigned)kbdKeyCount, (unsigned)notifyCount,
+             (unsigned)blockedCount);
     setProperty("AsusSMCKeyPath", rec);
 }
 

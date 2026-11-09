@@ -55,7 +55,7 @@
 // into the registry as AsusSMCBuild.
 //
 // Update this string whenever behaviour changes.
-#define kAsusSMCBuildTag "r49-drain"
+#define kAsusSMCBuildTag "r50-ganqmsg"
 
 
 // Kernel HID device, used for the keyboard backlight feature report. Only a
