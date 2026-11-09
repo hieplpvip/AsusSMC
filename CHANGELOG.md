@@ -1,6 +1,31 @@
 AsusSMC Changelog
 =======================
 
+#### v1.4.2
+- **Fix the WMI argument buffer size.** `wmi_args` was 8 bytes while the DSDT's
+  `ATKD.WMNB` declares 20, so every WMI call was rejected with
+  `AE_AML_BUFFER_LIMIT` on boards of this generation. The struct is now 24 bytes
+  (six `uint32` fields), which matches the declaration. This is not fan-specific:
+  the keyboard backlight (`DEVS 0x00050021`), the ALS enable and the battery
+  RSOC limit all go through the same call and were equally dead.
+- **Blank the keyboard backlight on display sleep.** macOS does not do this
+  here: `LKSB`/`LKSS` only exist on 2015-and-earlier Macs, and this machine
+  reports a 2020 SMBIOS, so macOS never touches them. The driver now follows
+  the display power state itself.
+  Note for anyone reading the registry: `IOPowerManagement` is an
+  `IOServicePM`, not an `OSDictionary`; a `OSDynamicCast` to a dictionary is
+  always null even though `ioreg -r` prints the value, because ioreg goes
+  through the serialisation path. `CurrentPowerState` is 4 awake and 1 asleep.
+- **Make the System Settings keyboard brightness slider work.** Two independent
+  causes had to be removed. First, automatic keyboard brightness disables the
+  manual slider, and it is enabled here because this driver publishes ambient
+  light keys; turning the automatic setting off unlocks it. Second, macOS then
+  only updates its own brightness state and never sends it to the hardware, so
+  the driver reads `KeyboardBacklightBrightness` from the registry once a second
+  and drives the light itself. That value tracks the slider over the full
+  `0..0xFFB` range and lives on `AppleLMUController` - do not remove the ALS
+  keys, they are what brings that service into existence.
+
 #### v1.4.1
 - Added MacKernelSDK with Xcode 12 compatibility
 - Drop experimental custom fan control code

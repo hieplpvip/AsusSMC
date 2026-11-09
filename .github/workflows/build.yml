@@ -1,0 +1,149 @@
+name: Build AsusSMC 1.4.2
+
+on:
+  push:
+    branches: [ "master", "release/1.4.2" ]
+    tags: [ "v*" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    # macos-15 (arm64) is much more available than the scarce Intel images.
+    # The kext itself is cross-built for x86_64, which Xcode handles fine:
+    # MacKernelSDK's headers abort under arm64, so ARCHS must be pinned.
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          uname -m
+          xcodebuild -version
+
+      # The SDKs come from the source repositories, not the release CDN.
+      #
+      # Upstream's bootstrap.sh downloads Lilu-x.y.z-DEBUG.zip from GitHub
+      # releases, and that CDN resets the connection mid-transfer often enough
+      # that builds fail before any code is compiled. Everything needed - Lilu's
+      # headers, plugin_start.cpp and VirtualSMCSDK - is in the repositories.
+      - name: Fetch SDK headers
+        run: |
+          set -euo pipefail
+          LILU=Lilu.kext/Contents/Resources
+          VSMCFG=VirtualSMC.kext/Contents/Resources
+          mkdir -p "$LILU/Headers" "$LILU/Library" "$VSMCFG/VirtualSMCSDK"
+
+          put() {
+            curl -Lfs --retry 5 --retry-delay 3 --retry-all-errors "$1" -o "$2" \
+              || { echo "FAILED: $1"; return 1; }
+          }
+
+          for h in kern_api.hpp kern_compat.hpp kern_config.hpp kern_compression.hpp \
+                   kern_cpu.hpp kern_crypto.hpp kern_devinfo.hpp kern_disasm.hpp \
+                   kern_efi.hpp kern_file.hpp kern_iokit.hpp kern_mach.hpp \
+                   kern_nvram.hpp kern_patcher.hpp kern_policy.hpp kern_rtc.hpp \
+                   kern_time.hpp kern_user.hpp kern_util.hpp kern_version.hpp \
+                   plugin_start.hpp hde32.h hde64.h; do
+            put "https://raw.githubusercontent.com/acidanthera/Lilu/master/Lilu/Headers/$h" \
+                "$LILU/Headers/$h"
+          done
+
+          put "https://raw.githubusercontent.com/acidanthera/Lilu/master/Lilu/Library/plugin_start.cpp" \
+              "$LILU/Library/plugin_start.cpp"
+
+          for h in AppleSmc.h AppleSmcBridge.hpp kern_keyvalue.hpp kern_smcinfo.hpp \
+                   kern_value.hpp kern_vsmcapi.hpp; do
+            put "https://raw.githubusercontent.com/acidanthera/VirtualSMC/master/VirtualSMCSDK/$h" \
+                "$VSMCFG/VirtualSMCSDK/$h"
+          done
+
+          ls "$VSMCFG/VirtualSMCSDK"
+
+      - name: Fetch MacKernelSDK
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/acidanthera/MacKernelSDK
+          test -f MacKernelSDK/Library/x86_64/libkmod.a
+
+      # Built through Xcode, not a hand-written link: the kext target runs
+      # CreateKModInfo, and the kernel will not load an extension without the
+      # resulting kmod_info object.
+      - name: Build (Debug)
+        run: |
+          set -euo pipefail
+          xcodebuild -jobs 1 -configuration Debug \
+            -project AsusSMC.xcodeproj -target AsusSMC \
+            ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee debug.log
+
+      - name: Build (Release)
+        run: |
+          set -euo pipefail
+          xcodebuild -jobs 1 -configuration Release \
+            -project AsusSMC.xcodeproj -target AsusSMC \
+            ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee release.log
+
+      - name: Verify kext
+        run: |
+          set -euo pipefail
+
+          KEXT=$(find build -name "AsusSMC.kext" -maxdepth 4 | head -n 1)
+          test -n "$KEXT" || { echo "AsusSMC.kext not produced"; exit 1; }
+          echo "kext: $KEXT"
+
+          for cfg in Debug Release; do
+            K="build/$cfg/AsusSMC.kext"
+            [ -d "$K" ] || continue
+            plutil -p "$K/Contents/Info.plist" | grep -E 'CFBundleVersion|CFBundleIdentifier'
+          done
+
+          BIN="$KEXT/Contents/MacOS/AsusSMC"
+          lipo -info "$BIN" | grep -q x86_64 || { echo "not x86_64"; exit 1; }
+
+          # A kernel extension must carry kmod_info; without it the kernel
+          # refuses to load the kext, which fails silently at boot.
+          nm -a "$BIN" 2>/dev/null | grep -q 'kmod_info' \
+            || { echo "MISSING kmod_info"; exit 1; }
+          echo "kmod_info present"
+
+          # The features this release adds must be linked in.
+          for m in followDisplayPower followKeyboardBrightness sendKbdBacklightViaHID; do
+            grep -aq "$m" "$BIN" || { echo "MISSING symbol $m"; exit 1; }
+          done
+          echo "verification OK"
+
+      - name: Package
+        if: always()
+        run: |
+          set -euo pipefail
+          OUT="$PWD/artifacts"
+          mkdir -p "$OUT"
+          for cfg in Debug Release; do
+            [ -d "build/$cfg/AsusSMC.kext" ] && \
+              ditto "build/$cfg/AsusSMC.kext" "$OUT/AsusSMC-$cfg.kext" || true
+          done
+          ls -l "$OUT"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AsusSMC-1.4.2
+          path: artifacts/*
+          if-no-files-found: warn
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            *.log
+          if-no-files-found: ignore

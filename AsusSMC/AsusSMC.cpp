@@ -2,10 +2,13 @@
 //  AsusSMC.cpp
 //  AsusSMC
 //
-//  Copyright © 2018-2020 Le Bao Hiep. All rights reserved.
+//  Copyright 婕?2018-2020 Le Bao Hiep. All rights reserved.
 //
 
 #include "AsusSMC.hpp"
+
+#include <IOKit/hid/IOHIDDevice.h>
+#include <IOKit/IOMemoryDescriptor.h>
 
 bool ADDPR(debugEnabled) = false;
 uint32_t ADDPR(debugPrintDelay) = 0;
@@ -24,7 +27,6 @@ bool AsusSMC::init(OSDictionary *dict) {
     kev.setEventCode(AsusSMCEventCode);
 
     atomic_init(&currentLux, 0);
-    atomic_init(&currentFanSpeed, 0);
 
     return true;
 }
@@ -74,7 +76,25 @@ bool AsusSMC::start(IOService *provider) {
 
     initBattery();
 
-    initVirtualKeyboard();
+    // Version badge. Every diagnostic below is worthless without knowing which
+    // build produced it: a boot that silently kept an older kext read exactly
+    // like a failed experiment twice already. Bump kAsusSMCBuildTag whenever
+    // behaviour changes and check it with
+    //   ioreg -rn AsusSMC -l | grep AsusSMCBuild
+    setProperty("AsusSMCBuild", kAsusSMCBuildTag);
+
+    // -asussmcnofollow disables the brightness follow loop.
+    blFollowDisabled = checkKernelArgument("-asussmcnofollow");
+
+    // VirtualAppleKeyboard publishes an Apple Vendor KeyboardBacklight
+    // collection (usage page 0xFF00, usage 0x0F, report id 191), which is what
+    // makes System Settings show the keyboard brightness panel at all. -asussmcnokbd
+    // leaves it out, so the panel source can be confirmed in one boot.
+    if (!checkKernelArgument("-asussmcnokbd")) {
+        initVirtualKeyboard();
+    } else {
+        setProperty("AsusSMCVirtualKeyboard", "disabled by boot-arg");
+    }
 
     startATKDevice();
 
@@ -92,7 +112,7 @@ bool AsusSMC::start(IOService *provider) {
     }
 
     setProperty("IsTouchpadEnabled", true);
-    setProperty("Copyright", "Copyright © 2018-2020 Le Bao Hiep. All rights reserved.");
+    setProperty("Copyright", "Copyright 婕?2018-2020 Le Bao Hiep. All rights reserved.");
 
     extern kmod_info_t kmod_info;
     setProperty("AsusSMC-Version", kmod_info.version);
@@ -106,12 +126,70 @@ bool AsusSMC::start(IOService *provider) {
 
     registerVSMC();
 
+    // System power events. Ported from upstream PR #62, merged into 1.2.2 and
+    // confirmed by several users: without joining the power tree the keyboard
+    // stays dark after a wake, because nothing restores the level.
+    subscribePowerEvents(provider);
+
     registerService();
 
     return true;
 }
 
+/**
+ *  System power events, ported from upstream PR #62 (merged into 1.2.2).
+ *
+ *  Two states are enough: off and on. When the system goes to sleep the
+ *  keyboard is blanked, and on wake the remembered level is restored. Without
+ *  this the keyboard either stays lit during sleep or comes back dark after
+ *  waking, because nothing else restores it.
+ */
+// kIOPMPowerOff does not exist in IOKit; upstream's patch defines its own zero
+// for the off state, and so does this one. kIOPMPowerOn does exist.
+#define kPowerStateOff 0
+#define kPowerStateCount 2
+
+static IOPMPowerState powerStates[kPowerStateCount] = {
+    {1, kPowerStateOff, kPowerStateOff, kPowerStateOff, 0, 0, 0, 0, 0, 0, 0, 0},
+    {1, kIOPMPowerOn, kIOPMPowerOn, kIOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0},
+};
+
+IOReturn AsusSMC::setPowerState(unsigned long powerStateOrdinal, IOService *whatDevice) {
+    // Guard added upstream in v1.2.3 ("Correct usage of powerStateOrdinal in
+    // setPowerState"). setPowerState is also delivered for other devices in
+    // the power tree; without this check an unrelated transition would blink
+    // the keyboard. PR #62 as originally merged lacked it.
+    if (whatDevice != this) {
+        return kIOPMAckImplied;
+    }
+
+    if (powerStateOrdinal == kPowerStateOff) {
+        // Sleep, shutdown or reboot. Blanking here is what keeps the keyboard
+        // from glowing through the night.
+        int ret = sendKbdBacklightViaHID(0);
+        SYSLOG("kbd", "system sleep -> keyboard backlight off (ret=0x%X)", (unsigned)ret);
+    } else {
+        int ret = sendKbdBacklightViaHID(kbdLevel);
+        SYSLOG("kbd", "system wake -> keyboard backlight %u (ret=0x%X)",
+               (unsigned)kbdLevel, (unsigned)ret);
+    }
+    return kIOPMAckImplied;
+}
+
+void AsusSMC::subscribePowerEvents(IOService *provider) {
+    PMinit();
+    provider->joinPMtree(this);
+    IOReturn ret = registerPowerDriver(this, powerStates, kPowerStateCount);
+    pmJoined = (ret == kIOReturnSuccess);
+    setProperty("AsusSMCPowerEvents", pmJoined ? "registered" : "failed");
+    SYSLOG("kbd", "power events: registerPowerDriver ret=0x%X", (unsigned)ret);
+}
+
 void AsusSMC::stop(IOService *provider) {
+    if (pmJoined) {
+        PMstop();
+        pmJoined = false;
+    }
     if (poller) {
         poller->cancelTimeout();
     }
@@ -139,9 +217,47 @@ void AsusSMC::stop(IOService *provider) {
 }
 
 IOReturn AsusSMC::message(uint32_t type, IOService *provider, void *argument) {
-    DBGLOG("atk", "Received message: %u Type %x Provider %s", *((uint32_t *)argument), type, provider ? provider->getName() : "unknown");
+    // argument is null for some messages - notably the power management ones
+    // added below - so it must not be dereferenced unconditionally. DBGLOG
+    // evaluates its arguments even when logging is off, so this would have
+    // panicked a Debug build on the first display transition.
+    DBGLOG("atk", "Received message: %u Type %x Provider %s",
+           argument ? *((uint32_t *)argument) : 0, type,
+           provider ? provider->getName() : "unknown");
 
     switch (type) {
+        case kIOMessageDeviceWillPowerOff:
+        {
+            // Delivered because we registered as an interested driver of the
+            // display power manager; this is the display going to sleep. It is
+            // the signal the registry could never provide, and it means the
+            // keyboard can be blanked without macOS driving the backlight.
+            displayOffEvents++;
+            publishDisplayEvents();
+
+            if (hasKeyboardBacklight) {
+                int ret = sendKbdBacklightViaHID(0);
+                kbdDimmedForDisplay = true;
+                SYSLOG("kbd", "display power off -> keyboard backlight off (ret=0x%X)",
+                       (unsigned)ret);
+            }
+            break;
+        }
+
+        case kIOMessageDeviceHasPoweredOn:
+        {
+            displayOnEvents++;
+            publishDisplayEvents();
+
+            if (hasKeyboardBacklight) {
+                int ret = sendKbdBacklightViaHID(kbdLevel);
+                kbdDimmedForDisplay = false;
+                SYSLOG("kbd", "display powered on -> keyboard backlight %u (ret=0x%X)",
+                       (unsigned)kbdLevel, (unsigned)ret);
+            }
+            break;
+        }
+
         case kIOACPIMessageDeviceNotification:
         {
             if (directACPImessaging) {
@@ -160,9 +276,93 @@ IOReturn AsusSMC::message(uint32_t type, IOService *provider, void *argument) {
         case kSetKeyboardBacklightMessage:
         {
             if (hasKeyboardBacklight) {
-                OSNumber *arg = OSNumber::withNumber(*((uint16_t *)argument) / 16, 16);
-                atkDevice->evaluateObject("SKBV", NULL, (OSObject **)&arg, 1);
-                arg->release();
+                // The caller (SMCKBrdBLightValue::update) has already mapped
+                // the macOS 0..0xFFB range onto 0..ASUS_KBD_BACKLIGHT_MAX.
+                uint8_t level = (uint8_t)(*((uint16_t *)argument));
+                if (level > ASUS_KBD_BACKLIGHT_MAX) {
+                    level = ASUS_KBD_BACKLIGHT_MAX;
+                }
+
+                // A level of 0 arriving here is ignored.
+                //
+                // Verified on this machine: macOS never drives LKSB, but
+                // VirtualSMC calls update() with the key's default initialiser
+                // at registration, and the default {val1 = 0, val2 = 1} maps
+                // to level 0. Acting on it turned the keyboard off at boot.
+                //
+                // The display-following path writes 0 directly when the panel
+                // sleeps, and asus-kbd can still turn the light off, so
+                // nothing is lost by not honouring a stray zero here.
+                if (level == 0) {
+                    setProperty("AsusSMCLastBacklight", "level=0 ignored (SMC path)");
+                    SYSLOG("kbd", "ignoring backlight level 0 from the SMC path");
+                    break;
+                }
+
+                // While the display is asleep the driver owns the backlight.
+                // macOS's auto-brightness may write a level right after we
+                // blanked the keyboard (the ALS keeps reading), which relights
+                // it immediately - the "display sleeps but the keyboard stays
+                // lit" report. Those writes are recorded but not applied.
+                if (backlightLockedWhileDimmed && level != 0) {
+                    lockedRejectCount++;
+                    char lock[96];
+                    snprintf(lock, sizeof(lock),
+                             "locked while dimmed: rejected level=%u (total=%u)",
+                             (unsigned)level, (unsigned)lockedRejectCount);
+                    setProperty("AsusSMCLastBacklight", lock);
+                    SYSLOG("kbd", "%s", lock);
+                    break;
+                }
+
+                // Remember it: followDisplayPower() restores this after the
+                // panel comes back.
+                kbdLevel = level;
+
+                // A request from the system while the panel is dark means the
+                // two are no longer in sync; let the next poll decide.
+                kbdDimmedForDisplay = false;
+
+                if (keyboardBacklightViaWMI) {
+                    // Preferred route: USB HID feature report. This is what
+                    // Linux (hid-asus) and Windows both use, and it is the
+                    // only path that actually reaches the EC on this board.
+                    int hidRet = sendKbdBacklightViaHID(level);
+
+                    char rec[160];
+                    if (hidRet == kIOReturnSuccess) {
+                        snprintf(rec, sizeof(rec),
+                                 "level=%u path=HID ok", level);
+                        setProperty("AsusSMCLastBacklight", rec);
+                        SYSLOG("kbd", "keyboard backlight %s", rec);
+                        break;
+                    }
+
+                    // Fall back to ACPI. Matches Linux asus-wmi's
+                    // kbd_led_update(): ctrl_param = 0x80 | (level & 0x7F).
+                    // The 0x80 bit is what EC0.SLKB tests; it is expected to be
+                    // a no-op on this DSDT, but keep it for other boards.
+                    uint32_t ctrl = ASUS_KBD_BACKLIGHT_ON_BIT | (level & 0x7F);
+                    int ret = wmi_evaluate_method(ASUS_WMI_METHODID_DEVS,
+                                                  ASUS_WMI_DEVID_KEYBOARD_BACKLIGHT,
+                                                  ctrl);
+
+                    snprintf(rec, sizeof(rec),
+                             "level=%u path=ACPI hidRet=0x%X ctrl=0x%X devsRet=%d",
+                             level, (unsigned)hidRet, ctrl, ret);
+                    setProperty("AsusSMCLastBacklight", rec);
+                    SYSLOG("kbd", "keyboard backlight %s", rec);
+                } else {
+                    OSNumber *arg = OSNumber::withNumber(level, 16);
+                    IOReturn kr = atkDevice->evaluateObject("SKBV", NULL, (OSObject **)&arg, 1);
+                    arg->release();
+
+                    char rec[96];
+                    snprintf(rec, sizeof(rec), "level=%u skbvRet=0x%X",
+                             level, (unsigned)kr);
+                    setProperty("AsusSMCLastBacklight", rec);
+                    SYSLOG("kbd", "keyboard backlight %s", rec);
+                }
             }
             break;
         }
@@ -235,6 +435,171 @@ int AsusSMC::wmi_get_devstate(uint32_t dev_id) {
 bool AsusSMC::wmi_dev_is_present(uint32_t dev_id) {
     int status = wmi_evaluate_method(ASUS_WMI_METHODID_DSTS, dev_id, 0);
     return status != -1 && (status & ASUS_WMI_DSTS_PRESENCE_BIT);
+}
+
+/**
+ *  Detect the "generic WMI backlight" shape of the keyboard backlight.
+ *
+ *  Boards like the GA503QM have no SKBV method; their DSDT routes the
+ *  backlight through DEVS device 0x00050021 -> EC0.SLKB. That device has
+ *  no DSTS branch at all, so wmi_dev_is_present() cannot see it and asking
+ *  DSTS just returns 0xFFFFFFFE.
+ *
+ *  Presence therefore has to be established structurally: the write has to
+ *  go through ATKD.WMNB's DEVS chain, which only offers 0x00050021 when the
+ *  board implements it. We confirm by writing "off" once; on a board without
+ *  the device DEVS reports unsupported and nothing happens. Off is the safe
+ *  value to probe with.
+ */
+bool AsusSMC::pci0Ec0HasKeyboardBacklight() {    if (wmi_dev_is_present(ASUS_WMI_DEVID_KEYBOARD_BACKLIGHT)) {
+        return true;
+    }
+
+    int ret = wmi_evaluate_method(ASUS_WMI_METHODID_DEVS,
+                                  ASUS_WMI_DEVID_KEYBOARD_BACKLIGHT,
+                                  ASUS_KBD_BACKLIGHT_ON_BIT | 0);
+    if (ret == -1 || ret == (int)ASUS_WMI_UNSUPPORTED_METHOD) {
+        return false;
+    }
+
+    // DEVS on this chain answers 1 on success.
+    return ret == 1;
+}
+
+/**
+ *  Locate the ASUS keyboard's HID device.
+ *
+ *  The backlight cannot be reached over ACPI on this board (EC0.SLKB is a
+ *  no-op), so the level has to go out as a USB HID feature report. Feature
+ *  reports travel over the control endpoint, which is device wide, so any of
+ *  the keyboard's HID interfaces will do - matching on the vendor id alone is
+ *  enough and avoids depending on which collection happens to carry 0xFF31.
+ *
+ *  Resolution is lazy and retried: this driver matches an ACPI device, which
+ *  is up long before the USB keyboard enumerates.
+ */
+bool AsusSMC::ensureKbdHIDDevice() {
+    if (kbdHIDDevice) {
+        return true;
+    }
+
+    OSDictionary *matching = IOService::serviceMatching("IOHIDDevice");
+    if (!matching) {
+        return false;
+    }
+
+    OSNumber *vid = OSNumber::withNumber((unsigned long long)ASUS_USB_VENDOR_ID, 32);
+    if (vid) {
+        matching->setObject("VendorID", vid);
+        vid->release();
+    }
+
+    // Short timeout: this can be called from the SMC write path.
+    IOService *svc = IOService::waitForMatchingService(matching, 100000000ULL /* 100 ms */);
+    matching->release();
+
+    if (!svc) {
+        return false;
+    }
+
+    IOHIDDevice *hid = OSDynamicCast(IOHIDDevice, svc);
+    if (hid) {
+        hid->retain();
+        kbdHIDDevice = hid;
+        SYSLOG("kbd", "keyboard HID device found: %s", svc->getName());
+    }
+    svc->release();
+
+    return kbdHIDDevice != nullptr;
+}
+
+/**
+ *  Send the backlight feature report.
+ *
+ *  Layout matches drivers/hid/hid-asus.c asus_kbd_set_brightness():
+ *    5A BA C5 C4 <level>   padded to 16 bytes
+ *  and ROG-HID, which sends the same buffer through DriverKit.
+ *
+ *  @return kIOReturnSuccess when the report left the machine.
+ */
+int AsusSMC::sendKbdBacklightViaHID(uint8_t level) {
+    if (!ensureKbdHIDDevice()) {
+        return kIOReturnNotReady;
+    }
+
+    // The keyboard's report descriptor for collection 0xFF31/0x76 declares,
+    // for report id 0x5A, a 5-byte input report and a 63-byte feature report
+    // (MaxFeatureReportSize reports 64, counting the id byte). The payload is
+    // therefore padded to 64 bytes, which is also the length that is proven to
+    // work: the userspace tool drove the backlight with exactly this layout.
+    uint8_t buf[64];
+    memset(buf, 0, sizeof(buf));
+    buf[0] = 0x5A;   // report id
+    buf[1] = 0xBA;   // command
+    buf[2] = 0xC5;   // illumination down
+    buf[3] = 0xC4;   // illumination up
+    buf[4] = level;
+
+    IOBufferMemoryDescriptor *report =
+        IOBufferMemoryDescriptor::withBytes(buf, sizeof(buf), kIODirectionOut);
+    if (!report) {
+        return kIOReturnNoMemory;
+    }
+
+    // The report id also goes in the low 8 bits of options; this is how
+    // IOHIDDevice::setReport is documented.
+    IOReturn kr = kbdHIDDevice->setReport(report, kIOHIDReportTypeFeature, 0x5A);
+    report->release();
+
+    return (int)kr;
+}
+
+void AsusSMC::recordKbdWrite(uint8_t val1, uint8_t val2, uint16_t packed, uint16_t level) {
+    kbdWriteCount++;
+
+    // Keep a short history of the raw payloads, not just the last one.
+    //
+    // macOS writes LKSB repeatedly at boot - 19 times on this machine. With
+    // only the final value recorded there is no way to tell whether that is
+    // nineteen identical zeros or a sequence, and the difference decides
+    // whether macOS is sweeping the range or repeatedly giving up.
+    if (kbdWriteLogPos < sizeof(kbdWriteLog) - 8) {
+        kbdWriteLogPos += (size_t)snprintf(kbdWriteLog + kbdWriteLogPos,
+                                          sizeof(kbdWriteLog) - kbdWriteLogPos,
+                                          "%u,%u;", val1, val2);
+    }
+
+    char rec[160];
+    snprintf(rec, sizeof(rec),
+             "val1=%u val2=%u packed=0x%X level=%u count=%u log=%s",
+             val1, val2, packed, level, (unsigned)kbdWriteCount, kbdWriteLog);
+    setProperty("AsusSMCLKSB", rec);
+}
+
+void AsusSMC::recordLKSAccess(uint32_t key, bool isWrite, uint16_t value) {
+    if (key > 1) {
+        return;
+    }
+    if (isWrite) {
+        lksWrites[key]++;
+        lksLastValue = value;
+    } else {
+        lksReads[key]++;
+    }
+    publishLKSAccess();
+}
+
+void AsusSMC::publishLKSAccess() {
+    // Published even when every counter is zero, which is exactly the case
+    // that needs diagnosing: a keyboard brightness control that never touches
+    // these keys.
+    char rec[160];
+    snprintf(rec, sizeof(rec),
+             "lksbR=%u lksbW=%u lkssR=%u lkssW=%u lastW=0x%X",
+             (unsigned)lksReads[0], (unsigned)lksWrites[0],
+             (unsigned)lksReads[1], (unsigned)lksWrites[1],
+             (unsigned)lksLastValue);
+    setProperty("AsusSMCLKSAccess", rec);
 }
 
 void AsusSMC::parse_WDG() {
@@ -322,58 +687,13 @@ void AsusSMC::initALSDevice() {
 }
 
 void AsusSMC::initEC0Device() {
-    isTACHAvailable = true;
-
-    auto dict = IOService::nameMatching("AppleACPIPlatformExpert");
-    if (!dict) {
-        SYSLOG("ec0", "WTF? Failed to create matching dictionary");
-        isTACHAvailable = false;
-        return;
-    }
-
-    auto acpi = IOService::waitForMatchingService(dict);
-    dict->release();
-
-    if (!acpi) {
-        SYSLOG("ec0", "WTF? No ACPI");
-        isTACHAvailable = false;
-        return;
-    }
-
-    acpi->release();
-
-    dict = IOService::nameMatching("PNP0C09");
-    if (!dict) {
-        SYSLOG("ec0", "WTF? Failed to create matching dictionary");
-        isTACHAvailable = false;
-        return;
-    }
-
-    auto deviceIterator = IOService::getMatchingServices(dict);
-    dict->release();
-
-    if (!deviceIterator) {
-        SYSLOG("ec0", "No iterator");
-        isTACHAvailable = false;
-        return;
-    }
-
-    ec0Device = OSDynamicCast(IOACPIPlatformDevice, deviceIterator->getNextObject());
-    deviceIterator->release();
-
-    if (!ec0Device) {
-        SYSLOG("ec0", "PNP0C09 device not found");
-        isTACHAvailable = false;
-        return;
-    }
-
-    if (ec0Device->validateObject("TACH") != kIOReturnSuccess || !refreshFan()) {
-        SYSLOG("ec0", "No functional method TACH on EC0 device");
-        isTACHAvailable = false;
-        return;
-    }
-
-    SYSLOG("ec0", "Found EC0 Device %s", ec0Device->getName());
+    // Fan telemetry moved to AsusFanControl.kext, which matches the ATKD device
+    // on its own and owns the TACH/DEVS/DSTS access. Nothing in this driver
+    // needs the EC0 device any more, so it is not resolved here.
+    //
+    // This stays as a no-op rather than being deleted so the call site in
+    // start() and the header declaration keep their meaning.
+    DBGLOG("ec0", "fan telemetry lives in AsusFanControl now, EC0 not needed");
 }
 
 void AsusSMC::initBattery() {
@@ -390,12 +710,67 @@ void AsusSMC::initBattery() {
 }
 
 void AsusSMC::initVirtualKeyboard() {
+    // Route the KeyboardBacklight collection to this driver before the device
+    // starts, so a write from macOS is never dropped for lack of a sink.
+    VirtualAppleKeyboard::setBacklightSink(virtualKeyboardBacklightSink, this);
+
     kbdDevice = new VirtualAppleKeyboard;
 
     if (!kbdDevice || !kbdDevice->init() || !kbdDevice->attach(this) || !kbdDevice->start(this)) {
         OSSafeReleaseNULL(kbdDevice);
         SYSLOG("vkbd", "Failed to init VirtualAppleKeyboard");
     }
+}
+
+void AsusSMC::virtualKeyboardBacklightSink(const uint8_t *bytes, uint32_t length, void *context) {
+    AsusSMC *self = static_cast<AsusSMC *>(context);
+    if (self) {
+        self->handleVirtualKeyboardBacklight(bytes, length);
+    }
+}
+
+void AsusSMC::handleVirtualKeyboardBacklight(const uint8_t *bytes, uint32_t length) {
+    if (!bytes || length < 6) {
+        return;
+    }
+
+    // The 0xB0 set report, layout from Linux's hid-apple:
+    //   bytes[0] = report id (0xB0)
+    //   bytes[1] = version   (1)
+    //   bytes[2..3] = backlight level (u16, little-endian)
+    //   bytes[4..5] = rate   (u16, little-endian)
+    //
+    // macOS's range goes 0..0x20 (the maximum we advertise in the config
+    // report), which maps straight onto the hardware levels 0..3 by dividing
+    // by 8 and clamping.
+    uint16_t raw = (uint16_t)(bytes[2] | (bytes[3] << 8));
+
+    uint8_t level = (uint8_t)((raw + 4) / 8);  // round to nearest of 0..3
+    if (level > ASUS_KBD_BACKLIGHT_MAX) {
+        level = ASUS_KBD_BACKLIGHT_MAX;
+    }
+
+    // Same lock as the SMC path: while the display is dark, macOS (through the
+    // virtual keyboard) may try to relight what we just blanked. Reject before
+    // touching kbdLevel or the dimmed flag, so the poller's state stays true.
+    if (backlightLockedWhileDimmed && level != 0) {
+        lockedRejectCount++;
+        SYSLOG("kbd", "HID write locked while dimmed: rejected level=%u (total=%u)",
+               (unsigned)level, (unsigned)lockedRejectCount);
+        setProperty("AsusSMCHIDBacklight", "locked while dimmed");
+        return;
+    }
+
+    kbdLevel = level;
+    kbdDimmedForDisplay = false;
+
+    // Report back the level on the 0x20 scale the config advertises.
+    VirtualAppleKeyboard::reportedLevel = (uint8_t)(level * 8);
+
+    int ret = sendKbdBacklightViaHID(level);
+    SYSLOG("kbd", "HID backlight write: level=%u raw=%u (ret=0x%X)",
+           (unsigned)level, (unsigned)raw, (unsigned)ret);
+    setProperty("AsusSMCHIDBacklight", "applied");
 }
 
 void AsusSMC::startATKDevice() {
@@ -406,15 +781,69 @@ void AsusSMC::startATKDevice() {
         directACPImessaging = true;
     }
 
-    // Check keyboard backlight support
+    // Check keyboard backlight support.
+    //
+    // Two shapes exist in the wild:
+    //   - a dedicated SKBV method (older Intel ATK DSDTs)
+    //   - the generic WMI device 0x00050021, whose DEVS branch calls
+    //     EC0.SLKB (GA503QM and similar AMD ROG boards)
+    // Only checking SKBV meant the second group was always reported as
+    // unsupported, even though the write path works.
     if (atkDevice->validateObject("SKBV") == kIOReturnSuccess) {
-        SYSLOG("atk", "Keyboard backlight is supported");
+        SYSLOG("atk", "Keyboard backlight is supported (SKBV)");
         hasKeyboardBacklight = true;
+    } else if (pci0Ec0HasKeyboardBacklight()) {
+        SYSLOG("atk", "Keyboard backlight is supported (WMI 0x%08X)",
+               ASUS_WMI_DEVID_KEYBOARD_BACKLIGHT);
+        hasKeyboardBacklight = true;
+        keyboardBacklightViaWMI = true;
     } else {
         hasKeyboardBacklight = false;
         DBGLOG("atk", "Keyboard backlight is not supported");
     }
     setProperty("IsKeyboardBacklightSupported", hasKeyboardBacklight);
+    setProperty("IsKeyboardBacklightViaWMI", keyboardBacklightViaWMI);
+
+    // Mirror the probe result into the IORegistry.
+    //
+    // Lilu's SYSLOG goes through IOLog, which does not reliably reach the
+    // unified log on current macOS, so `log show` can come back empty even
+    // when the driver is running fine. IORegistry properties always work:
+    //
+    //   ioreg -rn AsusSMC -l | grep AsusSMC
+    //
+    // The fan fields are reported by AsusFanControl.kext now, through its own
+    // AsusFanControlProbe property.
+    {
+        char probe[160];
+        snprintf(probe, sizeof(probe),
+                 "kbd=%d viaWMI=%d direct=%d",
+                 hasKeyboardBacklight ? 1 : 0,
+                 keyboardBacklightViaWMI ? 1 : 0,
+                 directACPImessaging ? 1 : 0);
+        setProperty("AsusSMCProbe", probe);
+        SYSLOG("atk", "probe summary: %s", probe);
+    }
+
+    // Light the keyboard at boot.
+    //
+    // Once the HID path started working, the previous build showed the
+    // keyboard going dark at startup: macOS writes its restored level to LKSB
+    // and, with the old broken mapping, that became level 0. The mapping is
+    // fixed, but a deliberate default here means the keyboard is never left
+    // dark just because the stored preference is 0. macOS may overwrite it a
+    // moment later, which is fine.
+    if (hasKeyboardBacklight) {
+        // Publish the counters before anything else so a zero reading is
+        // visible rather than absent.
+        publishLKSAccess();
+
+        int kr = sendKbdBacklightViaHID(2);
+        char rec[96];
+        snprintf(rec, sizeof(rec), "boot default level=2 hidRet=0x%X", (unsigned)kr);
+        setProperty("AsusSMCBootBacklight", rec);
+        SYSLOG("kbd", "%s", rec);
+    }
 
     // Turn on ALS sensor
     toggleALS(true);
@@ -450,36 +879,27 @@ bool AsusSMC::refreshALS(bool post) {
     return ret == kIOReturnSuccess;
 }
 
-bool AsusSMC::refreshFan() {
-    uint32_t speed = 10000;
-
-    if (isTACHAvailable) {
-        OSNumber *arg = OSNumber::withNumber(static_cast<uint32_t>(0), 32);
-        IOReturn ret = ec0Device->evaluateInteger("TACH", &speed, (OSObject **)&arg, 1);
-        arg->release();
-
-        if (ret != kIOReturnSuccess) {
-            DBGLOG("fan", "read fan speed using TACH failed");
-            speed = 10000;
-        }
-    } else {
-        int ret = wmi_get_devstate(ASUS_WMI_DEVID_CPU_FAN_CTRL);
-        if (ret == -1) {
-            DBGLOG("fan", "read fan speed using WMI failed");
-            speed = 10000;
-        } else {
-            speed = (ret & 0xffff) * 100;
-        }
+void AsusSMC::handleMessage(int code) {
+    // Record every notification that reaches us.
+    //
+    // This answers a question the DSDT analysis cannot: the illumination keys
+    // (0xC4 / 0xC5) are only produced by EC0.KBLD / KBLU, and those are called
+    // exclusively from the DEVS 0x00100021 branch, i.e. they fire when a
+    // driver tells ACPI about the key - not when the EC sees it. So the Fn
+    // brightness keys very likely never reach this method as ACPI events, but
+    // that is worth confirming on the real machine:
+    //
+    //   ioreg -rn AsusSMC -l | grep AsusSMCKey
+    //   (press Fn+F2 / Fn+F3 first)
+    lastKbdKey = (uint32_t)code;
+    kbdKeyCount++;
+    {
+        char rec[64];
+        snprintf(rec, sizeof(rec), "last=0x%X count=%u", (unsigned)code,
+                 (unsigned)kbdKeyCount);
+        setProperty("AsusSMCKey", rec);
     }
 
-    atomic_store_explicit(&currentFanSpeed, speed, memory_order_release);
-
-    DBGLOG("fan", "refreshFan speed %u", speed);
-
-    return speed != 10000;
-}
-
-void AsusSMC::handleMessage(int code) {
     switch (code) {
         case 0x57: // AC disconnected
         case 0x58: // AC connected
@@ -628,6 +1048,676 @@ void AsusSMC::displayOff() {
     isPanelBackLightOn = !isPanelBackLightOn;
 }
 
+/**
+ *  Locate the registry entry that publishes the keyboard backlight brightness.
+ *
+ *  Measured on the machine: the registry holds KeyboardBacklightBrightness and
+ *  it tracks the System Settings slider exactly (0, 689, 1696, 3838, 4091 -
+ *  the full 0..0xFFB range), while nothing ever hands that value to this
+ *  keyboard's hardware. The owning entry is not documented, so it is searched
+ *  for by property name and the result is published as AsusSMCBLEntry.
+ */
+void AsusSMC::findBrightnessEntryByProperty() {
+    IORegistryIterator *iter =
+        IORegistryIterator::iterateOver(gIOServicePlane, kIORegistryIterateRecursively);
+    if (!iter) {
+        setProperty("AsusSMCBLEntry", "iterator unavailable");
+        return;
+    }
+
+    IOService *found = nullptr;
+    while (OSObject *obj = iter->getNextObject()) {
+        IOService *svc = OSDynamicCast(IOService, obj);
+        if (!svc) {
+            // The recursive walk starts at the plane root, which is not an
+            // IOService; skip it instead of ending the walk.
+            continue;
+        }
+        if (svc->getProperty("KeyboardBacklightBrightness")) {
+            found = svc;
+            break;
+        }
+    }
+    iter->release();
+
+    if (found) {
+        found->retain();
+        blEntry = found;
+        setProperty("AsusSMCBLEntry", found->getName() ? found->getName() : "?");
+    } else {
+        setProperty("AsusSMCBLEntry", "not found");
+    }
+}
+
+bool AsusSMC::readBrightnessValue(uint32_t *value) {
+    if (!blEntry || !value) {
+        return false;
+    }
+
+    OSObject *prop = blEntry->getProperty("KeyboardBacklightBrightness");
+    if (!prop) {
+        // The entry is gone; resolve it again on a later tick.
+        OSSafeReleaseNULL(blEntry);
+        return false;
+    }
+
+    if (OSNumber *num = OSDynamicCast(OSNumber, prop)) {
+        *value = num->unsigned32BitValue();
+        return true;
+    }
+    if (OSData *data = OSDynamicCast(OSData, prop)) {
+        if (data->getLength() >= sizeof(uint32_t)) {
+            *value = *reinterpret_cast<const uint32_t *>(data->getBytesNoCopy());
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ *  Drive the keyboard from the brightness value macOS publishes.
+ *
+ *  This is the last link the keyboard was missing: the System Settings slider
+ *  moves macOS's own brightness state, and that state is readable from the
+ *  registry, but nothing on this machine forwards it to the hardware. Reading
+ *  it here and calling the proven HID write path closes the loop.
+ *
+ *  Only a change of level triggers a write, so the light is not rewritten every
+ *  second, and the display-sleep lock still wins: while the panel is dark the
+ *  driver owns the backlight and this does nothing.
+ */
+void AsusSMC::followKeyboardBrightness() {
+    if (!hasKeyboardBacklight) {
+        return;
+    }
+
+    // Escape hatch, so a misbehaving follow loop can be disabled without a
+    // rebuild: -asussmcnofollow
+    if (blFollowDisabled) {
+        return;
+    }
+
+    if (!blEntry) {
+        findBrightnessEntryByProperty();
+    }
+    if (!blEntry) {
+        return;
+    }
+
+    uint32_t value = 0;
+    if (!readBrightnessValue(&value)) {
+        return;
+    }
+    blValue = value;
+
+    // macOS uses 0..0xFFB; the hardware has 0..3.
+    uint32_t level = (value * ASUS_KBD_BACKLIGHT_MAX + 2047) / 4095;
+    if (level > ASUS_KBD_BACKLIGHT_MAX) {
+        level = ASUS_KBD_BACKLIGHT_MAX;
+    }
+
+    char rec[128];
+    snprintf(rec, sizeof(rec), "value=%u level=%u writes=%u locked=%d",
+             (unsigned)value, (unsigned)level, (unsigned)blWrites,
+             backlightLockedWhileDimmed ? 1 : 0);
+    setProperty("AsusSMCBacklightFollow", rec);
+
+    if (backlightLockedWhileDimmed) {
+        return;
+    }
+
+    if (level == kbdLevel) {
+        return;
+    }
+
+    kbdLevel = (uint8_t)level;
+    blWrites++;
+    int ret = sendKbdBacklightViaHID((uint8_t)level);
+    SYSLOG("kbd", "followed macOS brightness: value=%u -> level=%u (ret=0x%X)",
+           (unsigned)value, (unsigned)level, (unsigned)ret);
+}
+
+/**
+ *  Keep the keyboard backlight in step with the panel.
+ *
+ *  macOS will not do this for us on this machine. Its keyboard-brightness
+ *  support is per-model, and the SMC dumps show LKSB/LKSS only on 2015 and
+ *  older Macs - the 2016 top-case generation moved keyboard backlight off the
+ *  SMC entirely. This driver reports SMBIOS MacBookPro16,2 (2020), so macOS
+ *  never touches LKSB and therefore never blanks the keyboard when the screen
+ *  goes off. The result is a keyboard that stays lit through display sleep.
+ *
+ *  Polled from the existing sensor timer rather than hooked into power
+ *  management, which keeps the change contained: we only ever call the HID
+ *  write path that is already proven to work.
+ */
+void AsusSMC::followDisplayPower() {
+    if (!hasKeyboardBacklight) {
+        return;
+    }
+
+    uint32_t wranglerState = 0;
+    bool haveWrangler = readDisplayWranglerState(&wranglerState);
+
+    bool havePanel = readPanelBrightnessValue();
+
+    // Both of the steps below need the display services to have been resolved,
+    // and neither may run only once at the first timer tick.
+    //
+    // IODisplayWrangler is not matched that early, so on the first tick
+    // wranglerEntry and panelEntry are both null. The previous revision set its
+    // one-shot flags anyway, which is why every boot reported
+    // AsusSMCDisplayInterest = "wrangler=0 panel=0" - the registration had
+    // never actually executed, and the "off=0" result that followed said
+    // nothing about whether the mechanism works.
+    if (!displayInterestDone && (wranglerEntry || panelEntry)) {
+        subscribeDisplayPower();
+    }
+
+    // The probe is also delayed: measuring the power chain during early boot
+    // reports dictionaries that the system has not populated yet. Thirty ticks
+    // is enough for IOPM to settle, and the result is then trustworthy.
+    if (!powerProbeDone && ++pollTicks >= 30) {
+        powerProbeDone = true;
+        probePowerRegistry();
+    }
+
+    // Retry the boot-time level. It fails at start() because AsusSMC comes up
+    // long before the USB keyboard enumerates (kIOReturnNotReady), and this is
+    // the first place where the device is reliably available.
+    if (!kbdBootApplied) {
+        if (sendKbdBacklightViaHID(kbdLevel) == kIOReturnSuccess) {
+            kbdBootApplied = true;
+        }
+    }
+
+    // Everything is recorded rather than acted on blindly.
+    //
+    // The display cannot be observed from a shell while it is asleep - typing
+    // to read ioreg wakes it - so the driver keeps a running record of what it
+    // saw. A single read afterwards then answers whether the signal moved at
+    // all, which is the only way to calibrate the semantics:
+    //
+    //   ioreg -rn AsusSMC -l | grep AsusSMCPanelTrace
+    if (haveWrangler) {
+        if (!traceSeen) {
+            traceWranglerMin = traceWranglerMax = wranglerState;
+            traceSeen = true;
+        } else {
+            if (wranglerState < traceWranglerMin) traceWranglerMin = wranglerState;
+            if (wranglerState > traceWranglerMax) traceWranglerMax = wranglerState;
+        }
+    }
+    if (havePanel) {
+        if (traceBrightnessMin < 0) {
+            traceBrightnessMin = traceBrightnessMax = (int)panelBrightnessLevel;
+        } else {
+            if ((int)panelBrightnessLevel < traceBrightnessMin) traceBrightnessMin = (int)panelBrightnessLevel;
+            if ((int)panelBrightnessLevel > traceBrightnessMax) traceBrightnessMax = (int)panelBrightnessLevel;
+        }
+    }
+
+    char rec[192];
+    snprintf(rec, sizeof(rec),
+             "wrangler=%u panelBrightness=%u dimmed=%d level=%u trace=%d,%d,%d,%d",
+             (unsigned)wranglerState,
+             havePanel ? (unsigned)panelBrightnessLevel : 0u,
+             kbdDimmedForDisplay ? 1 : 0,
+             (unsigned)kbdLevel,
+             traceWranglerMin, traceWranglerMax, traceBrightnessMin, traceBrightnessMax);
+    setProperty("AsusSMCPanel", rec);
+
+    char trace[128];
+    snprintf(trace, sizeof(trace), "wrangler=%d..%d brightness=%d..%d dimmed=%d",
+             traceWranglerMin, traceWranglerMax,
+             traceBrightnessMin, traceBrightnessMax,
+             kbdDimmedForDisplay ? 1 : 0);
+    setProperty("AsusSMCPanelTrace", trace);
+
+    if (!haveWrangler && !havePanel) {
+        // No display signal this tick, but the brightness follow is independent
+        // of it and must not be skipped here.
+        followKeyboardBrightness();
+        return;
+    }
+
+    // Decide from the wrangler when it is readable, otherwise from the panel.
+    //
+    // Measured on the machine: with the display awake CurrentPowerState is 4,
+    // and after `pmset displaysleepnow` it drops to 1 (DevicePowerState 1,
+    // CapabilityFlags 0). So the "display is not fully on" states are the low
+    // ordinals; anything at or above 2 is treated as awake.
+    //
+    // Two consecutive reads are required before blanking, so a single
+    // transient value cannot turn the keyboard off.
+    bool displayOff = haveWrangler ? (wranglerState <= 1)
+                                   : (panelBrightnessLevel == 0);
+
+    if (displayOff) {
+        offStreak++;
+    } else {
+        offStreak = 0;
+    }
+
+    if (offStreak >= 2 && !kbdDimmedForDisplay) {
+        int kr = sendKbdBacklightViaHID(0);
+        kbdDimmedForDisplay = true;
+        // From now on, macOS cannot relight the keyboard while the display is
+        // dark. Released when the panel is back on.
+        backlightLockedWhileDimmed = true;
+        SYSLOG("kbd", "display off -> keyboard backlight off, locked (ret=0x%X)", (unsigned)kr);
+    } else if (!displayOff && kbdDimmedForDisplay && offStreak == 0) {
+        backlightLockedWhileDimmed = false;
+        int kr = sendKbdBacklightViaHID(kbdLevel);
+        kbdDimmedForDisplay = false;
+        SYSLOG("kbd", "display on -> keyboard backlight %u (ret=0x%X)",
+               (unsigned)kbdLevel, (unsigned)kr);
+    }
+
+    // Finally, follow whatever brightness macOS is publishing. This is what
+    // makes the System Settings slider actually move the light.
+    followKeyboardBrightness();
+}
+
+/**
+ *  Read the current display power state.
+ *
+ *  Measured on this machine: CurrentPowerState is 4 with the display awake and
+ *  1 after `pmset displaysleepnow`.
+ *
+ *  The property is not on the IODisplayWrangler service itself - reading it
+ *  there always returned nothing, while `ioreg -r` shows the value because it
+ *  recurses. So the service is searched first, then its children.
+ */
+/**
+ *  Read the power state out of an IOPowerManagement property.
+ *
+ *  The probe answered the question that six rounds of polling could not:
+ *
+ *      AsusSMCPowerDiag = wPM=1/IOServicePM/0 pPM=1/IOServicePM/0
+ *
+ *  The property IS there, but its class is IOServicePM, not OSDictionary.
+ *  Casting it to a dictionary was therefore always null, which is why every
+ *  read reported nothing while ioreg happily printed the value.
+ *
+ *  IOServicePM serialises into exactly the dictionary ioreg displays, so that
+ *  is the route used: serialise, parse the result back, then read
+ *  CurrentPowerState from it.
+ */
+static OSDictionary *powerManagementDict(OSObject *obj) {
+    if (!obj) {
+        return nullptr;
+    }
+
+    // The common case: already a plain dictionary.
+    if (OSDictionary *plain = OSDynamicCast(OSDictionary, obj)) {
+        return plain;
+    }
+
+    // IOServicePM (and anything else opaque): go through its serialised form.
+    OSSerialize *s = OSSerialize::withCapacity(4096);
+    if (!s) {
+        return nullptr;
+    }
+
+    OSDictionary *parsed = nullptr;
+    if (obj->serialize(s) && s->getLength() > 0) {
+        OSObject *result = OSUnserializeXML(s->text(), s->getLength());
+        if (result) {
+            parsed = OSDynamicCast(OSDictionary, result);
+            if (parsed) {
+                parsed->retain();
+            }
+            result->release();
+        }
+    }
+    s->release();
+
+    return parsed;
+}
+
+static bool readPowerStateFrom(IOService *svc, uint32_t *state, const char **source) {
+    if (!svc) {
+        return false;
+    }
+
+    OSDictionary *pm = powerManagementDict(svc->getProperty("IOPowerManagement"));
+    if (!pm) {
+        return false;
+    }
+
+    OSNumber *cur = OSDynamicCast(OSNumber, pm->getObject("CurrentPowerState"));
+    bool ok = false;
+    if (cur) {
+        *state = cur->unsigned32BitValue();
+        if (source) {
+            *source = svc->getName();
+        }
+        ok = true;
+    }
+
+    pm->release();
+    return ok;
+}
+
+bool AsusSMC::readDisplayWranglerState(uint32_t *state) {
+    if (!state) {
+        return false;
+    }
+
+    if (!wranglerEntry) {
+        OSDictionary *matching = IOService::serviceMatching("IODisplayWrangler");
+        if (!matching) {
+            return false;
+        }
+        // waitForMatchingService hands back an owned reference.
+        IOService *svc = IOService::waitForMatchingService(matching, 100000000ULL);
+        matching->release();
+        if (!svc) {
+            return false;
+        }
+        wranglerEntry = svc;
+        setProperty("AsusSMCDisplayFound", svc->getName());
+    }
+
+    const char *source = nullptr;
+
+    // 0. The entry that worked last time.
+    if (powerEntry && readPowerStateFrom(powerEntry, state, &source)) {
+        return true;
+    }
+
+    // 1. The wrangler itself, then its subtree. `ioreg -r` shows the value
+    //    under the wrangler, which is why it was assumed to be on the service.
+    if (readPowerStateFrom(wranglerEntry, state, &source)) {
+        powerEntry = wranglerEntry;
+        setProperty("AsusSMCPowerSource", source ? source : "wrangler");
+        return true;
+    }
+
+    if (trySubtree(wranglerEntry, 2, state, &source)) {
+        setProperty("AsusSMCPowerSource", source ? source : "wrangler-child");
+        return true;
+    }
+
+    // 2. The display service found for the brightness value; AppleBacklightDisplay
+    //    carries the graphics properties, so it may carry the power state too.
+    if (panelEntry) {
+        IOService *panel = OSDynamicCast(IOService, panelEntry);
+        if (readPowerStateFrom(panel, state, &source)) {
+            powerEntry = panel;
+            setProperty("AsusSMCPowerSource", source ? source : "panel");
+            return true;
+        }
+        if (trySubtree(panel, 1, state, &source)) {
+            setProperty("AsusSMCPowerSource", source ? source : "panel-child");
+            return true;
+        }
+    }
+
+    // 3. Last resort: walk the whole registry looking for a power management
+    //    dictionary. The source name is reported so the choice can be judged
+    //    rather than trusted, together with how many candidates were seen at
+    //    all - if this reports none seen=0 the walk itself is broken, which is
+    //    exactly what the previous version hid.
+    {
+        IORegistryIterator *iter =
+            IORegistryIterator::iterateOver(gIOServicePlane, kIORegistryIterateRecursively);
+        if (iter) {
+            IOService *first = nullptr;
+            const char *firstName = nullptr;
+            uint32_t firstState = 0;
+            IOService *displayish = nullptr;
+            const char *displayishName = nullptr;
+            uint32_t displayishState = 0;
+            uint32_t seen = 0;
+
+            while (OSObject *obj = iter->getNextObject()) {
+                // The recursive walk starts at the plane root, which is not an
+                // IOService. The previous version used the cast as the loop
+                // condition, so the first such entry ended the walk and the
+                // scan reported nothing at all.
+                IOService *svc = OSDynamicCast(IOService, obj);
+                if (!svc) {
+                    continue;
+                }
+
+                uint32_t v = 0;
+                const char *n = nullptr;
+                if (!readPowerStateFrom(svc, &v, &n)) {
+                    continue;
+                }
+                seen++;
+
+                if (!first) {
+                    first = svc;
+                    firstName = n;
+                    firstState = v;
+                }
+
+                // Prefer a display related entry over the first thing that
+                // happens to answer: plenty of services carry a power
+                // management dictionary.
+                const char *nm = svc->getName();
+                if (nm && (strstr(nm, "Display") || strstr(nm, "Wrangler"))) {
+                    displayish = svc;
+                    displayishName = n;
+                    displayishState = v;
+                    break;
+                }
+            }
+            iter->release();
+
+            char diag[96];
+            if (displayish || first) {
+                IOService *pick = displayish ? displayish : first;
+                const char *pickName = displayish ? displayishName : firstName;
+                uint32_t pickState = displayish ? displayishState : firstState;
+
+                pick->retain();
+                powerEntry = pick;
+                *state = pickState;
+
+                snprintf(diag, sizeof(diag), "%s state=%u seen=%u",
+                         pickName ? pickName : "?", pickState, seen);
+                setProperty("AsusSMCPowerSource", diag);
+                return true;
+            }
+
+            snprintf(diag, sizeof(diag), "none seen=%u", seen);
+            setProperty("AsusSMCPowerSource", diag);
+        }
+    }
+
+    return false;
+}
+
+/**
+ *  One-shot self diagnosis of the display power chain.
+ *
+ *  Four rounds were spent guessing which registry entry holds the display
+ *  power state, and the read kept reporting nothing. This reports every hop
+ *  separately so the broken link is visible in one boot instead of being
+ *  inferred:
+ *
+ *   wPM   does IODisplayWrangler carry IOPowerManagement, of what class,
+ *         and does it contain CurrentPowerState
+ *   pPM   the same for the panel entry (AppleBacklightDisplay)
+ *   scan  how many services the registry walk visited, how many carry
+ *         IOPowerManagement at all, how many carry CurrentPowerState, and
+ *         the first name that had one
+ */
+void AsusSMC::probePowerRegistry() {
+    char diag[192];
+
+    bool wPM = false, wCur = false, pPM = false, pCur = false;
+    const char *wType = "null", *pType = "null";
+
+    if (wranglerEntry) {
+        if (OSObject *o = wranglerEntry->getProperty("IOPowerManagement")) {
+            wPM = true;
+            wType = o->getMetaClass()->getClassName();
+            if (OSDictionary *d = powerManagementDict(o)) {
+                wCur = d->getObject("CurrentPowerState") != nullptr;
+                d->release();
+            }
+        }
+    }
+    if (panelEntry) {
+        if (OSObject *o = panelEntry->getProperty("IOPowerManagement")) {
+            pPM = true;
+            pType = o->getMetaClass()->getClassName();
+            if (OSDictionary *d = powerManagementDict(o)) {
+                pCur = d->getObject("CurrentPowerState") != nullptr;
+                d->release();
+            }
+        }
+    }
+
+    uint32_t scanned = 0, withPM = 0, withCur = 0;
+    char firstCurName[48] = "-";
+
+    if (IORegistryIterator *iter =
+            IORegistryIterator::iterateOver(gIOServicePlane, kIORegistryIterateRecursively)) {
+        while (OSObject *obj = iter->getNextObject()) {
+            IOService *svc = OSDynamicCast(IOService, obj);
+            if (!svc) {
+                continue;
+            }
+            scanned++;
+
+            OSObject *o = svc->getProperty("IOPowerManagement");
+            if (!o) {
+                continue;
+            }
+            withPM++;
+
+            OSDictionary *d = powerManagementDict(o);
+            if (!d || !d->getObject("CurrentPowerState")) {
+                if (d) {
+                    d->release();
+                }
+                continue;
+            }
+            withCur++;
+            d->release();
+
+            if (firstCurName[0] == '-') {
+                const char *n = svc->getName();
+                snprintf(firstCurName, sizeof(firstCurName), "%s", n ? n : "?");
+            }
+        }
+        iter->release();
+    }
+
+    snprintf(diag, sizeof(diag),
+             "wPM=%d/%s/%d pPM=%d/%s/%d scan=%u/%u/%u first=%s",
+             wPM ? 1 : 0, wType, wCur ? 1 : 0,
+             pPM ? 1 : 0, pType, pCur ? 1 : 0,
+             scanned, withPM, withCur, firstCurName);
+    setProperty("AsusSMCPowerDiag", diag);
+    SYSLOG("kbd", "power registry probe: %s", diag);
+
+    // Reading the power state out of the registry turned out to be impossible.
+    // The probe reports scan=338/87/0 on this machine: 87 services carry an
+    // IOPowerManagement dictionary and not one contains CurrentPowerState. The
+    // value ioreg prints is produced when the registry is serialised, so a kext
+    // cannot read it at all - which is why every polling attempt failed.
+    //
+    // registerInterestedDriver is the supported alternative: the display power
+    // manager then *sends* us its transitions. No polling, no property reads.
+    subscribeDisplayPower();
+}
+
+void AsusSMC::subscribeDisplayPower() {
+    bool wrangler = false;
+    bool panel = false;
+
+    if (wranglerEntry) {
+        wranglerEntry->registerInterestedDriver(this);
+        wrangler = true;
+    }
+    if (panelEntry) {
+        if (IOService *p = OSDynamicCast(IOService, panelEntry)) {
+            p->registerInterestedDriver(this);
+            panel = true;
+        }
+    }
+
+    char rec[64];
+    snprintf(rec, sizeof(rec), "wrangler=%d panel=%d",
+             wrangler ? 1 : 0, panel ? 1 : 0);
+    setProperty("AsusSMCDisplayInterest", rec);
+    SYSLOG("kbd", "display power interest registered: %s", rec);
+
+    // Only stop retrying once something actually registered. Reporting the
+    // failure honestly is what makes the next result interpretable.
+    if (wrangler || panel) {
+        displayInterestDone = true;
+    }
+}
+
+void AsusSMC::publishDisplayEvents() {
+    // Counters rather than a single last-event value: the display comes back on
+    // before anything can be read, so the count is the only proof that the
+    // notification ever arrived.
+    char rec[64];
+    snprintf(rec, sizeof(rec), "off=%u on=%u",
+             (unsigned)displayOffEvents, (unsigned)displayOnEvents);
+    setProperty("AsusSMCDisplayEvents", rec);
+}
+
+/**
+ *  Walk an entry's descendants looking for a power management dictionary.
+ *  Returns the entry that answered through `source`.
+ */
+bool AsusSMC::trySubtree(IOService *root, int depth, uint32_t *state, const char **source) {
+    if (!root || depth <= 0) {
+        return false;
+    }
+
+    OSIterator *iter = root->getChildIterator(gIOServicePlane);
+    if (!iter) {
+        return false;
+    }
+    iter->reset();
+
+    IOService *child = nullptr;
+    while (OSObject *obj = iter->getNextObject()) {
+        IOService *c = OSDynamicCast(IOService, obj);
+        if (!c) {
+            continue;
+        }
+        if (readPowerStateFrom(c, state, source)) {
+            child = c;
+            break;
+        }
+    }
+    iter->release();
+
+    if (child) {
+        return true;
+    }
+
+    // Recurse one level down. The iterator cannot be reused after release, so
+    // the children are walked again.
+    OSIterator *again = root->getChildIterator(gIOServicePlane);
+    if (!again) {
+        return false;
+    }
+    again->reset();
+    bool found = false;
+    while (OSObject *obj = again->getNextObject()) {
+        IOService *c = OSDynamicCast(IOService, obj);
+        if (c && trySubtree(c, depth - 1, state, source)) {
+            found = true;
+            break;
+        }
+    }
+    again->release();
+    return found;
+}
+
 int AsusSMC::checkBacklightEntry() {
     if (IORegistryEntry *bkl = IORegistryEntry::fromPath(backlightEntry)) {
         OSSafeReleaseNULL(bkl);
@@ -690,19 +1780,31 @@ int AsusSMC::findBacklightEntry() {
     return 0;
 }
 
-void AsusSMC::readPanelBrightnessValue() {
+bool AsusSMC::readPanelBrightnessValue() {
     if (!findBacklightEntry()) {
         DBGLOG("atk", "GPU device not found");
-        return;
+        // The static paths above are Intel and NVIDIA specific. On an AMD
+        // machine (this GA503QM with NootedRed) they all miss, so fall back
+        // to searching the registry for whichever service actually publishes
+        // the display brightness.
+        if (!findPanelEntryBySearch()) {
+            return false;
+        }
     }
 
     IORegistryEntry *displayDeviceEntry = IORegistryEntry::fromPath(backlightEntry);
+    if (!displayDeviceEntry && panelEntry) {
+        displayDeviceEntry = panelEntry;
+        displayDeviceEntry->retain();
+    }
 
+    bool ok = false;
     if (displayDeviceEntry) {
         if (OSDictionary *ioDisplayParaDict = OSDynamicCast(OSDictionary, displayDeviceEntry->getProperty("IODisplayParameters"))) {
             if (OSDictionary *brightnessDict = OSDynamicCast(OSDictionary, ioDisplayParaDict->getObject("brightness"))) {
                 if (OSNumber *brightnessValue = OSDynamicCast(OSNumber, brightnessDict->getObject("value"))) {
                     panelBrightnessLevel = brightnessValue->unsigned32BitValue() / 64;
+                    ok = true;
                     DBGLOG("atk", "Panel brightness level: %d", panelBrightnessLevel);
                 } else {
                     DBGLOG("atk", "Failed to read brightness value");
@@ -715,6 +1817,49 @@ void AsusSMC::readPanelBrightnessValue() {
         }
     }
     OSSafeReleaseNULL(displayDeviceEntry);
+    return ok;
+}
+
+/**
+ *  Find the display service that publishes IODisplayParameters.brightness.
+ *
+ *  Only used when the hard-coded Intel/NVIDIA paths fail, and the result is
+ *  cached, so the registry walk happens at most once.
+ */
+bool AsusSMC::findPanelEntryBySearch() {
+    if (panelEntry) {
+        return true;
+    }
+
+    IORegistryIterator *iter = IORegistryIterator::iterateOver(gIOServicePlane, kIORegistryIterateRecursively);
+    if (!iter) {
+        return false;
+    }
+
+    IORegistryEntry *found = nullptr;
+    while (IORegistryEntry *entry = iter->getNextObject()) {
+        OSDictionary *params = OSDynamicCast(OSDictionary, entry->getProperty("IODisplayParameters"));
+        if (!params) {
+            continue;
+        }
+        OSDictionary *brightness = OSDynamicCast(OSDictionary, params->getObject("brightness"));
+        if (!brightness || !brightness->getObject("value")) {
+            continue;
+        }
+        found = entry;
+        break;
+    }
+    iter->release();
+
+    if (found) {
+        found->retain();
+        panelEntry = found;
+        setProperty("AsusSMCPanelFound", found->getName());
+        return true;
+    }
+
+    setProperty("AsusSMCPanelFound", "none");
+    return false;
 }
 
 IOReturn AsusSMC::postKeyboardInputReport(const void *report, uint32_t reportSize) {
@@ -814,59 +1959,142 @@ void AsusSMC::registerVSMC() {
     ALSSensor sensor {ALSSensor::Type::Unknown7, true, 6, false};
     ALSSensor noSensor {ALSSensor::Type::NoSensor, false, 0, false};
     SMCALSValue::Value emptyValue;
+
+    // LKSB / LKSS contents.
+    //
+    // Neither byte is documented anywhere: upstream's defaults are {0, 1} and
+    // the struct fields are literally named unknown0/unknown1, so they are a
+    // guess. Tested on the machine: disabling AsusSMC makes the System
+    // Settings keyboard brightness control disappear entirely, which proves
+    // macOS reads these keys to decide whether to offer it. The control is
+    // then shown disabled, i.e. macOS finds the key but not an adjustable
+    // range.
+    //
+    // The working hypothesis is that the two bytes carry {current, maximum}
+    // and that a maximum of 1 means "one level", leaving nothing to adjust.
+    // The defaults are therefore raised to a 16 step range.
+    //
+    // Every byte can be overridden from boot-args, so the encoding can be
+    // swept without rebuilding:
+    //   -asussmclkb0=0 -asussmclkb1=16 -asussmclks0=0 -asussmclks1=16
     SMCKBrdBLightValue::lkb lkb;
+    lkb.val1 = 0;
+    lkb.val2 = 16;
+
     SMCKBrdBLightValue::lks lks;
+    lks.unknown0 = 0;
+    lks.unknown1 = 16;
 
-    VirtualSMCAPI::addKey(KeyAL, vsmcPlugin.data, VirtualSMCAPI::valueWithUint16(
-        0, &forceBits,
-        SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE));
+    {
+        int32_t v = 0;
+        if (PE_parse_boot_argn("asussmclkb0", &v, sizeof(v))) {
+            lkb.val1 = (uint8_t)v;
+        }
+        if (PE_parse_boot_argn("asussmclkb1", &v, sizeof(v))) {
+            lkb.val2 = (uint8_t)v;
+        }
+        if (PE_parse_boot_argn("asussmclks0", &v, sizeof(v))) {
+            lks.unknown0 = (uint8_t)v;
+        }
+        if (PE_parse_boot_argn("asussmclks1", &v, sizeof(v))) {
+            lks.unknown1 = (uint8_t)v;
+        }
 
-    VirtualSMCAPI::addKey(KeyALI0, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&sensor), sizeof(sensor), SmcKeyTypeAli, nullptr,
-        SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_FUNCTION));
+        char init[96];
+        snprintf(init, sizeof(init), "lkb=%u,%u lks=%u,%u",
+                 lkb.val1, lkb.val2, lks.unknown0, lks.unknown1);
+        setProperty("AsusSMCInit", init);
+        SYSLOG("kbd", "LKSB/LKSS initial values %s", init);
+    }
 
-    VirtualSMCAPI::addKey(KeyALI1, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&noSensor), sizeof(noSensor), SmcKeyTypeAli, nullptr,
-        SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_FUNCTION));
+    // Key group switches. What was actually registered is published as
+    // AsusSMCKeys, because a boot-arg that silently fails to parse is
+    // indistinguishable from one that was never added:
+    //
+    //   -asussmcnolks   leave LKSB and LKSS unregistered
+    //   -asussmcnoalv   leave the whole ambient light group unregistered
+    //                   (AL, ALI0, ALI1, ALRV, ALV0, ALV1)
+    bool registerLKS = !checkKernelArgument("-asussmcnolks");
+    bool registerALV = !checkKernelArgument("-asussmcnoalv");
 
-    VirtualSMCAPI::addKey(KeyALRV, vsmcPlugin.data, VirtualSMCAPI::valueWithUint16(
-        1, nullptr,
-        SMC_KEY_ATTRIBUTE_READ));
+    {
+        char keys[48];
+        snprintf(keys, sizeof(keys), "lks=%d alv=%d",
+                 registerLKS ? 1 : 0, registerALV ? 1 : 0);
+        setProperty("AsusSMCKeys", keys);
+    }
 
-    VirtualSMCAPI::addKey(KeyALV0, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&emptyValue), sizeof(emptyValue), SmcKeyTypeAlv, new SMCALSValue(&currentLux, &forceBits),
-        SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
+    // -asussmcnoalv now covers the whole ambient light group, not just ALV0 and
+    // ALV1. The two-boot experiment showed the System Settings panel survives
+    // both switches, but AL, ALI0, ALI1 and ALRV were registered in both boots,
+    // so they were never actually separated from anything:
+    //
+    //   boot A: lks=0 alv=1  -> panel present (ALV0/1 + AL/ALI0/ALI1/ALRV)
+    //   boot B: lks=1 alv=0  -> panel present (AL/ALI0/ALI1/ALRV still on)
+    //
+    // ALI0 and ALI1 are the sensor descriptors: real MacBookPro11,4 reports
+    // ALI0 = 07000600, which is exactly what this driver's
+    // {Unknown7, true, 6, false} produces, so the panel is almost certainly
+    // driven by the presence of these keys.
+    if (registerALV) {
+        VirtualSMCAPI::addKey(KeyAL, vsmcPlugin.data, VirtualSMCAPI::valueWithUint16(
+            0, &forceBits,
+            SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE));
 
-    VirtualSMCAPI::addKey(KeyALV1, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&emptyValue), sizeof(emptyValue), SmcKeyTypeAlv, nullptr,
-        SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
+        VirtualSMCAPI::addKey(KeyALI0, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
+            reinterpret_cast<const SMC_DATA *>(&sensor), sizeof(sensor), SmcKeyTypeAli, nullptr,
+            SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_FUNCTION));
 
-    VirtualSMCAPI::addKey(KeyLKSB, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&lkb), sizeof(lkb), SmcKeyTypeLkb, new SMCKBrdBLightValue(this),
-        SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
+        VirtualSMCAPI::addKey(KeyALI1, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
+            reinterpret_cast<const SMC_DATA *>(&noSensor), sizeof(noSensor), SmcKeyTypeAli, nullptr,
+            SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_FUNCTION));
 
-    VirtualSMCAPI::addKey(KeyLKSS, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&lks), sizeof(lks), SmcKeyTypeLks, nullptr,
-        SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
+        VirtualSMCAPI::addKey(KeyALRV, vsmcPlugin.data, VirtualSMCAPI::valueWithUint16(
+            1, nullptr,
+            SMC_KEY_ATTRIBUTE_READ));
+    }
+
+    if (registerALV) {
+        VirtualSMCAPI::addKey(KeyALV0, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
+            reinterpret_cast<const SMC_DATA *>(&emptyValue), sizeof(emptyValue), SmcKeyTypeAlv, new SMCALSValue(&currentLux, &forceBits),
+            SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
+
+        VirtualSMCAPI::addKey(KeyALV1, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
+            reinterpret_cast<const SMC_DATA *>(&emptyValue), sizeof(emptyValue), SmcKeyTypeAlv, nullptr,
+            SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
+    }
+
+    // LKSB / LKSS are registered read/write, not write-only.
+    //
+    // A previous revision made them write-only because the real Mac dumps
+    // report "NOT READABLE, code 85" and the attribute byte there is 0x50
+    // (WRITE | FUNCTION). That was a mistake, for two reasons:
+    //
+    //   * The System Settings keyboard brightness control is still displayed
+    //     on this machine, greyed out. A machine with no keyboard backlight at
+    //     all does not show that control, so macOS is detecting a backlight -
+    //     and LKSB/LKSS are the only such interface this driver publishes. So
+    //     macOS is looking at these keys after all.
+    //   * If macOS reads the current level to render the slider, a key that
+    //     cannot be read is exactly what would leave the slider disabled.
+    //     "NOT READABLE" in the dump may also just be the dump tool lacking
+    //     the access those keys want.
+    //
+    // Keeping READ also restores the read counters, which are the direct
+    // evidence of whether macOS touches these keys at all.
+    if (registerLKS) {
+        VirtualSMCAPI::addKey(KeyLKSB, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
+            reinterpret_cast<const SMC_DATA *>(&lkb), sizeof(lkb), SmcKeyTypeLkb, new SMCKBrdBLightValue(this),
+            SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
+
+        VirtualSMCAPI::addKey(KeyLKSS, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
+            reinterpret_cast<const SMC_DATA *>(&lks), sizeof(lks), SmcKeyTypeLks, new SMCKBrdBLightState(this),
+            SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
+    }
 
     VirtualSMCAPI::addKey(KeyMSLD, vsmcPlugin.data, VirtualSMCAPI::valueWithUint8(
         0, nullptr,
         SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_WRITE | SMC_KEY_ATTRIBUTE_FUNCTION));
-
-    VirtualSMCAPI::addKey(KeyFNum, vsmcPlugin.data, VirtualSMCAPI::valueWithUint8(
-        1, nullptr,
-        SMC_KEY_ATTRIBUTE_CONST | SMC_KEY_ATTRIBUTE_READ));
-
-    VirtualSMCAPI::addKey(KeyF0Ac, vsmcPlugin.data, VirtualSMCAPI::valueWithFp(
-        0, SmcKeyTypeFpe2, new F0Ac(&currentFanSpeed),
-        SMC_KEY_ATTRIBUTE_READ | SMC_KEY_ATTRIBUTE_FUNCTION));
-
-    FanTypeDescStruct desc;
-    lilu_os_strncpy(desc.strFunction, "System Fan", DiagFunctionStrLen);
-
-    VirtualSMCAPI::addKey(KeyF0ID, vsmcPlugin.data, VirtualSMCAPI::valueWithData(
-        reinterpret_cast<const SMC_DATA *>(&desc), sizeof(desc), SmcKeyTypeFds, nullptr,
-        SMC_KEY_ATTRIBUTE_CONST | SMC_KEY_ATTRIBUTE_READ));
 
     if (isBatteryRSOCAvailable) {
         VirtualSMCAPI::addKey(KeyBDVT, vsmcPlugin.data, VirtualSMCAPI::valueWithFlag(
@@ -890,7 +2118,9 @@ bool AsusSMC::vsmcNotificationHandler(void *sensors, void *refCon, IOService *vs
                 auto ls = OSDynamicCast(AsusSMC, object);
                 if (ls) {
                     ls->refreshALS(true);
-                    ls->refreshFan();
+                    // Fan refresh lives in AsusFanControl.kext now; it runs
+                    // its own timer and its own ACPI access.
+                    ls->followDisplayPower();
                 }
             });
 
@@ -927,8 +2157,20 @@ EXPORT extern "C" kern_return_t ADDPR(kern_start)(kmod_info_t *, void *) {
     // This works better and increases boot speed in some cases.
     PE_parse_boot_argn("liludelay", &ADDPR(debugPrintDelay), sizeof(ADDPR(debugPrintDelay)));
     ADDPR(debugEnabled) = checkKernelArgument("-vsmcdbg") || checkKernelArgument("-asussmcdbg");
+
+    // Unconditional banner. This is a SYSLOG, not a DBGLOG, so it prints
+    // even when debugging is off. Without it there is no way to tell from the
+    // log which build actually got loaded, and no way to tell whether a
+    // missing DBGLOG means "debug is off" or "the code never ran".
+    SYSLOG("atk", "kern_start: debugEnabled=%d", ADDPR(debugEnabled) ? 1 : 0);
+
+    if (!ADDPR(debugEnabled)) {
+        SYSLOG("atk", "DBG output is OFF; add -asussmcdbg (or -vsmcdbg) to boot-args");
+    }
+
     return KERN_SUCCESS;
 }
+
 
 EXPORT extern "C" kern_return_t ADDPR(kern_stop)(kmod_info_t *, void *) {
     // It is not safe to unload VirtualSMC plugins!
